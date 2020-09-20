@@ -1,0 +1,156 @@
+import os
+import sys
+import csv
+import json
+import pathlib
+from cleantext import clean  # reference: https://github.com/jfilter/clean-text
+
+
+# Raw data folders paths
+raw_data_paths = {
+    'training path':    'raw data\\rumoureval-2019-training-data',
+    'validation path':  'raw data\\rumoureval-2019-training-data',
+    'test path':        'raw data\\rumoureval-2019-test-data'
+}
+
+# jason with labels
+raw_data_labels_paths = {
+    'training path':    raw_data_paths['training path'] + '\\train-key.json',
+    'validation path':  raw_data_paths['validation path'] + '\\dev-key.json',
+    'test path':        raw_data_paths['test path'] + '\\final-eval-key.json'
+}
+
+# Preprocessed data folders paths
+preprocessed_data_paths = {
+    'training path':    'preprocessed data\\training',
+    'validation path':  'preprocessed data\\validation',
+    'test path':        'preprocessed data\\test'
+}
+
+
+def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_labels, stances_labels):
+    # Opening JSON file
+    with open(tweet_path, 'r') as tweet_file:
+        # get JSON object as a dictionary
+        tweet_dict = json.load(tweet_file)
+        try:
+            tweet_content = tweet_dict['text']
+            tweet_content = clean(tweet_content,
+                                  fix_unicode=True,  # fix various unicode errors
+                                  to_ascii=True,  # transliterate to closest ASCII representation
+                                  lower=True,  # lowercase text
+                                  no_line_breaks=True,  # fully strip line breaks as opposed to only normalizing them
+                                  no_urls=True,  # replace all URLs with a special token
+                                  no_emails=True,  # replace all email addresses with a special token
+                                  no_phone_numbers=True,  # replace all phone numbers with a special token
+                                  no_numbers=False,  # replace all numbers with a special token
+                                  no_digits=False,  # replace all digits with a special token
+                                  no_currency_symbols=True,  # replace all currency symbols with a special token
+                                  no_punct=True,  # fully remove punctuation
+                                  replace_with_url=" ",
+                                  replace_with_email=" ",
+                                  replace_with_phone_number=" ",
+                                  replace_with_number=" ",
+                                  replace_with_digit=" ",
+                                  replace_with_currency_symbol=" ",
+                                  lang="en")
+            try:
+                tweet_label = rumors_labels[tweet_id]
+                row = [tweet_content, tweet_label]
+                writer_rumors.writerow(row)
+            except KeyError:
+                pass
+            try:
+                tweet_label = stances_labels[tweet_id]
+                row = [tweet_content, tweet_label]
+                writer_stances.writerow(row)
+            except KeyError:
+                pass
+        except KeyError:
+            pass
+
+
+def main():
+    for (_, raw_data_path), (_, raw_data_labels_path), (_, preprocessed_data_path) \
+            in zip(raw_data_paths.items(), raw_data_labels_paths.items(), preprocessed_data_paths.items()):
+        # Opening JSON file
+        try:
+            labels_file = open(raw_data_labels_path)
+        except IOError:
+            print("error")
+            break
+
+        # get JSON object as a dictionary
+        labels = json.load(labels_file)
+
+        try:
+            rumors_labels = labels['subtaskbenglish']
+        except KeyError:
+            rumors_labels = {}
+
+        try:
+            stances_labels = labels['subtaskaenglish']
+        except KeyError:
+            stances_labels = {}
+
+        # create "Claim' folder
+        pathlib.Path(preprocessed_data_path).mkdir(parents=True, exist_ok=True)
+
+        dirs = os.listdir(raw_data_path)
+        for dir_name in dirs:
+            dir_fullPath = os.path.join(raw_data_path, dir_name)
+            if os.path.isdir(dir_fullPath) and dir_name.startswith("twitter"):
+                claim_dirs_path = dir_fullPath
+                claim_dirs = os.listdir(claim_dirs_path)
+                for claim_dir in claim_dirs:
+                    claim_dir_fullPath = os.path.join(dir_fullPath, claim_dir)
+                    if os.path.isdir(claim_dir_fullPath):
+                        # create claim directory
+                        new_claim_dir = os.path.join(preprocessed_data_path, claim_dir)
+                        pathlib.Path(new_claim_dir).mkdir(parents=True, exist_ok=True)
+
+                        # csv column names and content arrays
+                        csv_fieldnames = ['Tweet content', 'Label']
+                        try:
+                            csv_file_rumors = open(os.path.join(new_claim_dir, 'rumors.csv'), 'w', newline='')
+                            csv_writer_rumors = csv.writer(csv_file_rumors)
+                            csv_writer_rumors.writerow(csv_fieldnames)
+                            csv_file_stances = open(os.path.join(new_claim_dir, 'stances.csv'), 'w', newline='')
+                            csv_writer_stances = csv.writer(csv_file_stances)
+                            csv_writer_stances.writerow(csv_fieldnames)
+                        except:
+                            print('Exception with opening CSV files')
+                            sys.exit()
+
+                        in_claim_dirs_path = os.path.join(claim_dirs_path, claim_dir)
+                        in_claim_dirs = os.listdir(in_claim_dirs_path)
+                        for in_claim_dir in in_claim_dirs:
+                            root_tweet_dirs_path = os.path.join(in_claim_dirs_path, in_claim_dir)
+                            if os.path.isdir(root_tweet_dirs_path):
+                                root_tweet_dirs = os.listdir(root_tweet_dirs_path)
+                                for root_tweet_dir in root_tweet_dirs:
+                                    root_tweet_dir_fullPath = os.path.join(root_tweet_dirs_path)
+                                    if os.path.isdir(root_tweet_dir_fullPath) and 'source-tweet' == root_tweet_dir:
+                                        tweet_full_path = os.path.join(root_tweet_dir_fullPath, root_tweet_dir,
+                                                                       in_claim_dir + '.json')
+                                        set_tweet_label(tweet_full_path, csv_writer_rumors, csv_writer_stances,
+                                                        in_claim_dir, rumors_labels, stances_labels)
+                                    elif os.path.isdir(root_tweet_dir_fullPath) and 'replies' == root_tweet_dir:
+                                        reply_tweet_files_path = os.path.join(root_tweet_dir_fullPath, root_tweet_dir)
+                                        reply_tweet_files = os.listdir(reply_tweet_files_path)
+                                        for reply_tweet_file in reply_tweet_files:
+                                            reply_tweet_file_fullPath = os.path.join(reply_tweet_files_path,
+                                                                                     reply_tweet_file)
+                                            if not os.path.isdir(reply_tweet_file_fullPath):
+                                                set_tweet_label(reply_tweet_file_fullPath, csv_writer_rumors,
+                                                                csv_writer_stances, reply_tweet_file[:-5],
+                                                                rumors_labels, stances_labels)
+                        csv_file_rumors.close()
+                        csv_file_stances.close()
+
+        labels_file.close()
+
+
+if __name__ == '__main__':
+    main()
+    print('Finished')
