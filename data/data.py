@@ -1,3 +1,13 @@
+'''
+This Script converts this dataset: https://figshare.com/articles/RumourEval_2019_data/8845580
+which described here: https://www.aclweb.org/anthology/S19-2147.pdf to CSV files, in the following logic:
+It creates 3 folders: training, validation and testing.
+Each folder contains sub-folders in the same amount of the'claims' at the raw dataset.
+(“Claim” is a collection of posts (tweets) that are discuss the same matter)/
+Each claim folder contains 2 CSV files: rumors.csv and stances.csv.
+each CSV file has 2 columns: tweet content and label.
+'''
+
 import os
 import sys
 import csv
@@ -29,6 +39,16 @@ preprocessed_data_paths = {
 
 
 def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_labels, stances_labels):
+    '''
+    Writes to the CSV files the "clean" tweet content and it's label
+    :param tweet_path: tweet full path
+    :param writer_rumors: object used for writing into the rumors csv
+    :param writer_stances: object used for writing into the stances csv
+    :param tweet_id: tweet id (as string)
+    :param rumors_labels: dictionary containing the labels for each tweet id that related to rumor detection task
+    :param stances_labels: dictionary containing the labels for each tweet id that related to stance classification task
+    :return: void
+    '''
     # Opening JSON file
     with open(tweet_path, 'r') as tweet_file:
         # get JSON object as a dictionary
@@ -55,13 +75,13 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
                                   replace_with_currency_symbol=" ",
                                   lang="en")
             try:
-                tweet_label = rumors_labels[tweet_id]
+                tweet_label = rumors_labels[tweet_id]  # if there is such key - it jumps to 'except'
                 row = [tweet_content, tweet_label]
                 writer_rumors.writerow(row)
             except KeyError:
                 pass
             try:
-                tweet_label = stances_labels[tweet_id]
+                tweet_label = stances_labels[tweet_id]  # if there is such key - it jumps to 'except'
                 row = [tweet_content, tweet_label]
                 writer_stances.writerow(row)
             except KeyError:
@@ -71,6 +91,7 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
 
 
 def main():
+    # go through training data folder, validation data folder and test data folder
     for (_, raw_data_path), (_, raw_data_labels_path), (_, preprocessed_data_path) \
             in zip(raw_data_paths.items(), raw_data_labels_paths.items(), preprocessed_data_paths.items()):
         # Opening JSON file
@@ -109,8 +130,8 @@ def main():
                         new_claim_dir = os.path.join(preprocessed_data_path, claim_dir)
                         pathlib.Path(new_claim_dir).mkdir(parents=True, exist_ok=True)
 
-                        # csv column names and content arrays
-                        csv_fieldnames = ['Tweet content', 'Label']
+                        csv_fieldnames = ['Tweet content', 'Label']  # csv column names and content arrays
+                        # open CSV files
                         try:
                             csv_file_rumors = open(os.path.join(new_claim_dir, 'rumors.csv'), 'w', newline='')
                             csv_writer_rumors = csv.writer(csv_file_rumors)
@@ -122,6 +143,7 @@ def main():
                             print('Exception with opening CSV files')
                             sys.exit()
 
+                        # scan the data folders and find all the tweets
                         in_claim_dirs_path = os.path.join(claim_dirs_path, claim_dir)
                         in_claim_dirs = os.listdir(in_claim_dirs_path)
                         for in_claim_dir in in_claim_dirs:
