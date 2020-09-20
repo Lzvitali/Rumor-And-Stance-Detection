@@ -127,4 +127,4 @@ dmypy.json
 # Dataset files
 data/preprocessed data/
 data/raw data/
-
+embedding/model_skipgram.bin
