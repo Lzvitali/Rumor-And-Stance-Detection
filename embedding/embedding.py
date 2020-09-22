@@ -1,6 +1,6 @@
-'''
+"""
 TODO: add description
-'''
+"""
 
 import fasttext
 import os
