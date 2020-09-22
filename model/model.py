@@ -31,10 +31,6 @@ class GRUCELLTaskSpecific(torch.nn.Module):
         self.linear_us_hn = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
         self.activation_h = nn.Tanh()
 
-        # final classification
-        self.linear_v = nn.Linear(self.hidden_length, self.output_length, bias=True)
-        self.activation_y = nn.Softmax()
-
     def update_gate(self, x, h_prev, h_shared_new):
         x_new = self.linear_w_z(x)
         h_new = self.linear_u_z(h_prev)
@@ -160,3 +156,30 @@ class GRUCELLShared(torch.nn.Module):
         h_new = (1 - z) * nm + z * h_prev  # TODO: think about it (change as in the paper or not)
 
         return h_new
+
+
+class GRUTaskSpecific(torch.nn.Module):
+    """
+    TODO: add description
+    """
+    def __init__(self, gru_shared, output_length, input_length=250, hidden_length=100):
+        super(GRUTaskSpecific, self).__init__()
+        self.input_length = input_length
+        self.hidden_length = hidden_length
+        self.gru_shared = gru_shared
+        self.output_length = output_length  # as the amount of labels in the specific task
+
+        self.gru_cell_specific = GRUCELLTaskSpecific(gru_shared, output_length, input_length, hidden_length)
+
+        # final classification
+        self.linear_v = nn.Linear(self.hidden_length, self.output_length, bias=True)
+        self.activation_y = nn.Softmax()
+
+    def forward(self, input_batch):
+        outputs = []
+        h_t = torch.zeros(input_batch.size(0), self.hidden_length, dtype=torch.double)
+
+        # for raw in input_batch:
+        # h_t = self.gru_cell_specific(input_t, h_t)
+
+        return outputs
