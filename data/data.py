@@ -2,9 +2,7 @@
 This Script converts this dataset: https://figshare.com/articles/RumourEval_2019_data/8845580
 which described here: https://www.aclweb.org/anthology/S19-2147.pdf to CSV files, in the following logic:
 It creates 3 folders: training, validation and testing.
-Each folder contains sub-folders in the same amount of the'claims' at the raw dataset.
-(“Claim” is a collection of posts (tweets) that are discuss the same matter)/
-Each claim folder contains 2 CSV files: rumors.csv and stances.csv.
+Each folder contains 2 CSV files: rumors.csv and stances.csv.
 each CSV file has 2 columns: tweet content and label.
 """
 
@@ -87,7 +85,7 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
                 counters_dict['stances'] += 1
 
 
-def main():
+def division_by_tasks():
     counters = {
         'rumors': 0,
         'stances': 0,
@@ -119,8 +117,22 @@ def main():
         except KeyError:
             stances_labels = {}
 
-        # create "Claim' folder
+        # create folder for training / validation / test
         pathlib.Path(preprocessed_data_path).mkdir(parents=True, exist_ok=True)
+
+        # create 2 CSV file: 1 for rumors , 1 for stances
+        csv_fieldnames = ['Tweet content', 'Label']  # csv column names and content arrays
+        # open CSV files
+        try:
+            csv_file_rumors = open(os.path.join(preprocessed_data_path, 'rumors.csv'), 'w', newline='')
+            csv_writer_rumors = csv.writer(csv_file_rumors)
+            csv_writer_rumors.writerow(csv_fieldnames)
+            csv_file_stances = open(os.path.join(preprocessed_data_path, 'stances.csv'), 'w', newline='')
+            csv_writer_stances = csv.writer(csv_file_stances)
+            csv_writer_stances.writerow(csv_fieldnames)
+        except:
+            print('Exception with opening CSV files')
+            sys.exit()
 
         dirs = os.listdir(raw_data_path)
         for dir_name in dirs:
@@ -131,23 +143,6 @@ def main():
                 for claim_dir in claim_dirs:
                     claim_dir_fullPath = os.path.join(dir_fullPath, claim_dir)
                     if os.path.isdir(claim_dir_fullPath):
-                        # create claim directory
-                        new_claim_dir = os.path.join(preprocessed_data_path, claim_dir)
-                        pathlib.Path(new_claim_dir).mkdir(parents=True, exist_ok=True)
-
-                        csv_fieldnames = ['Tweet content', 'Label']  # csv column names and content arrays
-                        # open CSV files
-                        try:
-                            csv_file_rumors = open(os.path.join(new_claim_dir, 'rumors.csv'), 'w', newline='')
-                            csv_writer_rumors = csv.writer(csv_file_rumors)
-                            csv_writer_rumors.writerow(csv_fieldnames)
-                            csv_file_stances = open(os.path.join(new_claim_dir, 'stances.csv'), 'w', newline='')
-                            csv_writer_stances = csv.writer(csv_file_stances)
-                            csv_writer_stances.writerow(csv_fieldnames)
-                        except:
-                            print('Exception with opening CSV files')
-                            sys.exit()
-
                         # scan the data folders and find all the tweets
                         in_claim_dirs_path = os.path.join(claim_dirs_path, claim_dir)
                         in_claim_dirs = os.listdir(in_claim_dirs_path)
@@ -172,9 +167,8 @@ def main():
                                                 set_tweet_label(reply_tweet_file_fullPath, csv_writer_rumors,
                                                                 csv_writer_stances, reply_tweet_file[:-5],
                                                                 rumors_labels, stances_labels, counters)
-                        csv_file_rumors.close()
-                        csv_file_stances.close()
-
+        csv_file_rumors.close()
+        csv_file_stances.close()
         labels_file.close()
 
         if 'training' in preprocessed_data_path:
@@ -187,5 +181,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    division_by_tasks()
     print('Finished')

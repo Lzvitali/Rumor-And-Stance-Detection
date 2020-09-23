@@ -25,7 +25,7 @@ class GRUCELLTaskSpecific(torch.nn.Module):
         self.linear_us_r = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
         self.activation_r = nn.Sigmoid()
 
-        # new memory gate components
+        # new memory components
         self.linear_w_hn = nn.Linear(self.input_length, self.hidden_length, bias=False)
         self.linear_u_hn = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
         self.linear_us_hn = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
@@ -98,7 +98,7 @@ class GRUCELLShared(torch.nn.Module):
         self.linear_u_r_2 = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
         self.activation_r = nn.Sigmoid()
 
-        # new memory gate components
+        # new memory components
         # weight matrices for task m=1
         self.linear_w_hn_1 = nn.Linear(self.input_length, self.hidden_length, bias=False)
         self.linear_u_hn_1 = nn.Linear(self.hidden_length, self.hidden_length, bias=False)
