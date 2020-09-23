@@ -177,7 +177,7 @@ class GRUTaskSpecific(torch.nn.Module):
 
     def forward(self, input_batch):
         outputs = []
-        h_t = torch.zeros(input_batch.size(0), self.hidden_length, dtype=torch.double)
+        h_t = torch.zeros(input_batch.size(0), self.hidden_length, dtype=torch.double)  # TODO: check if better to use 'randn'
 
         # for raw in input_batch:
         # h_t = self.gru_cell_specific(input_t, h_t)

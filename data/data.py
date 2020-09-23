@@ -183,4 +183,4 @@ def division_by_tasks():
 
 if __name__ == '__main__':
     division_by_tasks()
-    print('Finished')
+    print('done')

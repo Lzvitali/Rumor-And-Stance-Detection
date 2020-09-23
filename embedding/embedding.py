@@ -98,7 +98,7 @@ def main():
                                             "skipgram",
                                             minn=3,  # min length of char ngram - subword between 3 and 6 characters is as popular
                                             maxn=6,  # max length of char ngram
-                                            dim=250,  # size of word vectors - any value in the 100-300 range is as popular
+                                            dim=seq_dim,  # size of word vectors - any value in the 100-300 range is as popular
                                             lr=0.1  # learning rate - The default value is 0.05 which is a good compromise. If you want to play with it we suggest to stay in the range of [0.01, 1]
                                             )
         model.save_model(skipgram_path)
@@ -134,3 +134,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    print('done')
