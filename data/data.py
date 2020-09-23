@@ -1,5 +1,5 @@
 """
-This Script converts this dataset: https://figshare.com/articles/RumourEval_2019_data/8845580
+This script converts this dataset: https://figshare.com/articles/RumourEval_2019_data/8845580
 which described here: https://www.aclweb.org/anthology/S19-2147.pdf to CSV files, in the following logic:
 It creates 3 folders: training, validation and testing.
 Each folder contains 2 CSV files: rumors.csv and stances.csv.
@@ -45,6 +45,7 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
     :param tweet_id: tweet  id (as string)
     :param rumors_labels:   dictionary containing the labels for each tweet id that related to rumor detection task
     :param stances_labels:  dictionary containing the labels for each tweet id that related to stance classification task
+    :param counters_dict:   dictionary holding 2 counters, one for each task
     :return: void
     """
     # Opening JSON file
