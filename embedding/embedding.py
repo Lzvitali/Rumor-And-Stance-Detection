@@ -1,5 +1,5 @@
 """
-This script converts the csv data that 'data.py' generates into '.npy' files
+This script converts the csv data that 'data.py' generates into '.npy' files (after embedding with FastText)
 """
 
 import fasttext
@@ -24,19 +24,19 @@ wiki_dataset = '..\\..\\fasttextWiki\\text9'
 skipgram_path = 'model_skipgram.bin'
 
 seq_dim = 250  # size of embedded vector
-output_dim_rumors = 3
-output_dim_stances = 4
+output_dim_rumors = 3  # output size for rumor detection (True rumor, False rumor, Unverified)
+output_dim_stances = 4  # output size for stance classification (Support, Deny, Query, Comment)
 
 # labels to np.array
 # for rumors
-label_true = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-label_false = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-label_unverified = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+label_true = np.array([1, 0, 0], dtype=np.int64)
+label_false = np.array([0, 1, 0], dtype=np.int64)
+label_unverified = np.array([0, 0, 1], dtype=np.int64)
 # for stances
-label_support = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-label_deny = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32)
-label_query = np.array([0.0, 0.0, 1.0, 0.0], dtype=np.float32)
-label_comment = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+label_support = np.array([1, 0, 0, 0], dtype=np.int64)
+label_deny = np.array([0, 1, 0, 0], dtype=np.int64)
+label_query = np.array([0, 0, 1, 0], dtype=np.int64)
+label_comment = np.array([0, 0, 0, 1], dtype=np.int64)
 
 
 def prepare_data(base_path, csv_path, output_dim, fasttext_model, counters):
@@ -63,7 +63,7 @@ def prepare_data(base_path, csv_path, output_dim, fasttext_model, counters):
             set_name = 'stances'
 
         tweets = np.zeros((num_of_tweets, seq_dim), dtype=np.float32)
-        labels = np.zeros((num_of_tweets, output_dim), dtype=np.float32)
+        labels = np.zeros((num_of_tweets, output_dim), dtype=np.int64)
 
         for i, row in enumerate(csv_reader):
             tweets[i, :] = fasttext_model.get_sentence_vector(row[0])
