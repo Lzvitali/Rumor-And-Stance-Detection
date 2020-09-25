@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class GRUCELLTaskSpecific(torch.nn.Module):
     """
-    TODO: add description
+    This class is our GRUCELL for the task specific layers, which includes the sharedGRU result in it`s computations.
     """
     def __init__(self, output_length, input_length=250, hidden_length=100):
         super(GRUCELLTaskSpecific, self).__init__()
@@ -69,7 +69,8 @@ class GRUCELLTaskSpecific(torch.nn.Module):
 
 class GRUCELLShared(torch.nn.Module):
     """
-    TODO: add description
+    Our implementation of the GRUCELL for the shared layer.
+    Used by each of the tasks.
     """
     def __init__(self, input_length=250, hidden_length=100):
         super(GRUCELLShared, self).__init__()
@@ -159,7 +160,7 @@ class GRUCELLShared(torch.nn.Module):
 
 class GRUTaskSpecific(torch.nn.Module):
     """
-    TODO: add description
+    Our implementation of the GRU for the task specific layer.
     """
     def __init__(self, gru_shared, output_length, m, input_length=250, hidden_length=100):
         super(GRUTaskSpecific, self).__init__()
