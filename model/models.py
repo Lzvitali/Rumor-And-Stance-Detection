@@ -82,10 +82,12 @@ class GRUMultiTask(torch.nn.Module):
 
         # for final classification
         self.linear_v_rumors = nn.Linear(self.hidden_length, df.output_dim_rumors, bias=True)
-        self.activation_y_rumors = nn.Softmax(dim=0)
+        self.activation_y_tanh_rumors = nn.Tanh()
+        self.activation_y_softmax_rumors = nn.Softmax(dim=0)
 
         self.linear_v_stances = nn.Linear(self.hidden_length, df.output_dim_stances, bias=True)
-        self.activation_y_stances = nn.Softmax(dim=0)
+        self.activation_y_tanh_stances = nn.Tanh()
+        self.activation_y_softmax_stances = nn.Softmax(dim=0)
 
     def forward(self, batch, h_prev_shared, m, h_prev_rumors=None, h_prev_stances=None):
         outputs = []
@@ -101,14 +103,23 @@ class GRUMultiTask(torch.nn.Module):
             if m == df.task_rumors_no:
                 h_prev_rumors = self.gru_cell_rumors(raw, h_prev_rumors, h_prev_shared)
                 v = self.linear_v_rumors(h_prev_rumors)
-                output = self.activation_y_rumors(v)
+                v = self.activation_y_tanh_rumors(v)
+                output = self.activation_y_softmax_rumors(v)
             else:  # m == df.task_stances_no
                 h_prev_stances = self.gru_cell_stances(raw, h_prev_stances, h_prev_shared)
                 v = self.linear_v_stances(h_prev_stances)
-                output = self.activation_y_rumors(v)
+                v = self.activation_y_tanh_stances(v)
+                output = self.activation_y_softmax_stances(v)
 
             outputs += [output]
         if m == df.task_rumors_no:
             return torch.stack(outputs), h_prev_shared, h_prev_rumors
         else:  # m == df.task_stances_no
             return torch.stack(outputs), h_prev_shared, h_prev_stances
+
+    def init_hidden(self):
+        weight = next(self.parameters()).data
+        hidden = (weight.new(df.hidden_length).zero_(),
+                  weight.new(df.hidden_length).zero_(),
+                  weight.new(df.hidden_length).zero_())
+        return hidden

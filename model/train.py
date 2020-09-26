@@ -73,13 +73,17 @@ def main():
     valid_loss_min_stances = np.Inf
 
     for i in range(epochs):
-        h_prev_task_rumors = torch.zeros(df.hidden_length).to(device)
-        h_prev_task_stances = torch.zeros(df.hidden_length).to(device)
-        h_prev_shared = torch.zeros(df.hidden_length).to(device)
+        # h_prev_task_rumors = torch.zeros(df.hidden_length).to(device)
+        # h_prev_task_stances = torch.zeros(df.hidden_length).to(device)
+        # h_prev_shared = torch.zeros(df.hidden_length).to(device)
+
+        h = model.init_hidden()
 
         for (inputs_rumors, labels_rumors), (inputs_stances, labels_stances) \
                 in zip(train_loader_rumors, train_loader_stances):
             counter_batches += 1
+
+            h_prev_task_rumors, h_prev_task_stances, h_prev_shared = tuple([e.data for e in h])
 
             # for rumors
             inputs_rumors, labels_rumors = inputs_rumors.to(device), labels_rumors.to(device)
@@ -90,7 +94,7 @@ def main():
             loss_rumors = criterion(output_r, (torch.max(labels_rumors, 1)[1]).to(device))
             print('Rumors loss: ' + str(loss_rumors.item()))
             loss_rumors.backward(retain_graph=True)
-            optimizer.step()
+            # optimizer.step()
 
             # for stances
             inputs_stances, labels_stances = inputs_stances.to(device), labels_stances.to(device)
@@ -102,6 +106,54 @@ def main():
             print('Stances loss: ' + str(loss_stances.item()))
             loss_stances.backward()
             optimizer.step()
+
+            # --------------------------make the validation for rumors----------------------------------
+            print('\nValidation for rumor detection model: ')
+            val_losses = []
+            h_val = model.init_hidden()
+            h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
+            model.eval()
+            for inp, lab in val_loader_rumors:
+                inp, lab = inp.to(device), lab.to(device)
+                out_v_r, h_prev_shared_val, h_prev_task_rumors_val = model(inp, h_prev_shared_val, df.task_rumors_no,
+                                                                           h_prev_rumors=h_prev_task_rumors_val)
+                val_loss = criterion(out_v_r, (torch.max(lab, 1)[1]).to(device))  # (torch.max(lab, 1)[1]).to(device)
+                val_losses.append(val_loss.item())
+
+            model.train()
+            print("Epoch: {}/{}...".format(i + 1, epochs),
+                  "batch: {}...".format(counter_batches),
+                  "Loss: {:.6f}...".format(loss_rumors.item()),
+                  "Val Loss: {:.6f}".format(np.mean(val_losses)))
+            if np.mean(val_losses) <= valid_loss_min_rumors:
+                torch.save(model.state_dict(), './state_dict_rumors.pt')
+                print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(valid_loss_min_rumors,
+                                                                                                np.mean(val_losses)))
+                valid_loss_min_rumors = np.mean(val_losses)
+
+            # make the validation for stances
+            print('\nValidation for stance classification model: ')
+            val_losses = []
+            h_val = model.init_hidden()
+            h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
+            model.eval()
+            for inp, lab in val_loader_stances:
+                inp, lab = inp.to(device), lab.to(device)
+                out_v_s, h_prev_shared_val, h_prev_task_stances_val = model(inp, h_prev_shared_val, df.task_stances_no,
+                                                                            h_prev_stances=h_prev_task_stances_val)
+                val_loss = criterion(out_v_s, (torch.max(lab, 1)[1]).to(device))  # (torch.max(lab, 1)[1]).to(device)
+                val_losses.append(val_loss.item())
+
+            model.train()
+            print("Epoch: {}/{}...".format(i + 1, epochs),
+                  "batch: {}...".format(counter_batches),
+                  "Loss: {:.6f}...".format(loss_stances.item()),
+                  "Val Loss: {:.6f}".format(np.mean(val_losses)))
+            if np.mean(val_losses) <= valid_loss_min_stances:
+                torch.save(model.state_dict(), './state_dict_stances.pt')
+                print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(valid_loss_min_stances,
+                                                                                                np.mean(val_losses)))
+                valid_loss_min_stances = np.mean(val_losses)
 
 
 if __name__ == '__main__':

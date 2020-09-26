@@ -1,4 +1,4 @@
-from model.models import GRUTaskSpecific, GRUCELLShared
+from model.models import GRUMultiTask
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,17 +17,22 @@ batch_size_test_rumors = 28
 batch_size_test_stances = 533
 
 
-def run_model(model_shared, model_gru_specific, device, test_loader_specific, criterion_specific, output_dim):
+def run_model(model, device, test_loader_specific, criterion_specific, output_dim):
     test_losses = []
     num_correct = 0
-    h_prev_shared = model_shared.init_state().to(device)
-    h_prev_task = model_gru_specific.init_state().to(device)
+    h_val = model.init_hidden()
+    h_prev, _, h_prev_shared = tuple([e.data for e in h_val])
 
-    model_gru_specific.eval()
+    model.eval()
     for inputs, labels in test_loader_specific:
         inputs, labels = inputs.to(device), labels.to(device)
 
-        output, h_prev_shared, h_prev_task = model_gru_specific(inputs, h_prev_shared, h_prev_task)
+        if output_dim == df.output_dim_rumors:
+            output, h_prev_shared, h_prev = model(inputs, h_prev_shared, df.task_rumors_no,
+                                                  h_prev_rumors=h_prev)
+        else:
+            output, h_prev_shared, h_prev = model(inputs, h_prev_shared, df.task_stances_no,
+                                                  h_prev_stances=h_prev)
 
         test_loss = criterion_specific(output, (torch.max(labels, 1)[1]).to(device))
         test_losses.append(test_loss.item())
@@ -65,18 +70,14 @@ def main():
     else:
         device = torch.device("cpu")
 
-    # create models
-    model_shared = GRUCELLShared(df.input_length, df.hidden_length)
-    model_gru_rumors = GRUTaskSpecific(model_shared, df.output_dim_rumors, df.task_rumors_no, df.input_length,
-                                       df.hidden_length)
-    model_gru_stances = GRUTaskSpecific(model_shared, df.output_dim_stances, df.task_stances_no, df.input_length,
-                                        df.hidden_length)
-    model_shared.to(device)
+    # create the model
+    model_gru_rumors = GRUMultiTask(df.input_length, df.hidden_length)
+    model_gru_stances = GRUMultiTask(df.input_length, df.hidden_length)
     model_gru_rumors.to(device)
     model_gru_stances.to(device)
 
-    criterion_rumors = nn.CrossEntropyLoss()
-    criterion_stances = nn.CrossEntropyLoss()
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss()
 
     # Loading the best model of rumor detection
     model_gru_rumors.load_state_dict(torch.load('./state_dict_rumors.pt'))
@@ -84,9 +85,11 @@ def main():
     # Loading the best model of stance classification
     model_gru_stances.load_state_dict(torch.load('./state_dict_stances.pt'))
 
-    run_model(model_shared, model_gru_rumors, device, test_loader_rumors, criterion_rumors, df.output_dim_rumors)
+    print('For Rumors:')
+    run_model(model_gru_rumors, device, test_loader_rumors, criterion, df.output_dim_rumors)
     print('-----------------------------------------')
-    run_model(model_shared, model_gru_stances, device, test_loader_stances, criterion_stances, df.output_dim_stances)
+    print('For Stances:')
+    run_model(model_gru_stances, device, test_loader_stances, criterion, df.output_dim_stances)
 
 
 if __name__ == '__main__':
