@@ -34,7 +34,8 @@ def run_model(model, device, test_loader_specific, criterion_specific, output_di
             output, h_prev_shared, h_prev = model(inputs, h_prev_shared, df.task_stances_no,
                                                   h_prev_stances=h_prev)
 
-        test_loss = criterion_specific(output, (torch.max(labels, 1)[1]).to(device))
+        # test_loss = criterion_specific(output, (torch.max(labels, 1)[1]).to(device))  # with CrossEntropyLoss
+        test_loss = criterion_specific(output, labels.float())  # with BCELoss
         test_losses.append(test_loss.item())
 
         for out, label in zip(output, labels):
@@ -77,7 +78,8 @@ def main():
     model_gru_stances.to(device)
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()  # with CrossEntropyLoss
+    criterion = nn.BCELoss()  # with BCELoss
 
     # Loading the best model of rumor detection
     model_gru_rumors.load_state_dict(torch.load('./state_dict_rumors.pt'))

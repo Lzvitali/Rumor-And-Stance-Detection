@@ -97,9 +97,6 @@ class GRUMultiTask(torch.nn.Module):
             h_prev_shared = self.gru_cell_shared(r, h_s)
             h_prev_shared = h_prev_shared.view(self.hidden_length)
 
-            # h1 = torch.rand(100).to('cuda').detach()
-            # h2 = torch.rand(100).to('cuda').detach()
-
             if m == df.task_rumors_no:
                 h_prev_rumors = self.gru_cell_rumors(raw, h_prev_rumors, h_prev_shared)
                 v = self.linear_v_rumors(h_prev_rumors)
@@ -111,7 +108,7 @@ class GRUMultiTask(torch.nn.Module):
                 v = self.activation_y_tanh_stances(v)
                 output = self.activation_y_softmax_stances(v)
 
-            outputs += [output]
+            outputs.append(output)
         if m == df.task_rumors_no:
             return torch.stack(outputs), h_prev_shared, h_prev_rumors
         else:  # m == df.task_stances_no
