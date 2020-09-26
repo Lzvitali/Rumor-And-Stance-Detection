@@ -138,29 +138,31 @@ class GRUMultiTask(torch.nn.Module):
         self.input_length = input_length
         self.hidden_length = hidden_length
 
-        self.gru_cell_rumors = GRUCELLTaskSpecific(input_length, hidden_length)
-        self.gru_cell_stances = GRUCELLTaskSpecific(input_length, hidden_length)
+        self.gru_cell_rumors = nn.GRUCell(input_length, hidden_length, True)
+        self.gru_cell_stances = nn.GRUCell(input_length, hidden_length, True)
         self.gru_cell_shared = GRUCELLShared(input_length, hidden_length)
 
         # for final classification
-        self.linear_v = nn.Linear(self.hidden_length, self.output_length, bias=True)
-        self.activation_y = nn.Softmax(dim=0)
+        self.linear_v_rumors = nn.Linear(self.hidden_length, df.output_dim_rumors, bias=True)
+        self.activation_y_rumors = nn.Softmax(dim=0)
 
-    def forward(self, batch, h_prev_shared, h_prev_specific, m):
+        self.linear_v_stances = nn.Linear(self.hidden_length, df.output_dim_stances, bias=True)
+        self.activation_y_stances = nn.Softmax(dim=0)
+
+    def forward(self, batch, h_prev_shared, m, h_prev_rumors=None, h_prev_stances=None):
         outputs = []
         for raw in batch:
             h_prev_shared = self.gru_cell_shared(raw, h_prev_shared)
 
             if m == df.task_rumors_no:
-                h_prev_specific = self.gru_cell_rumors(raw, h_prev_specific, h_prev_shared)
+                h_prev_rumors = self.gru_cell_rumors(raw, h_prev_rumors, h_prev_shared)
+                v = self.linear_v_rumors(h_prev_rumors)
+                output = self.activation_y_rumors(v)
+                outputs += [output]
+                return torch.stack(outputs), h_prev_shared, h_prev_rumors
             else:  # m == df.task_stances_no
-                h_prev_specific = self.gru_cell_stances(raw, h_prev_specific, h_prev_shared)
-
-            v = self.linear_v(h_prev_specific)
-            output = self.activation_y(v)
-
-            outputs += [output]
-
-        return torch.stack(outputs), h_prev_shared, h_prev_specific
-
-
+                h_prev_stances = self.gru_cell_stances(raw, h_prev_stances, h_prev_shared)
+                v = self.linear_v_stances(h_prev_stances)
+                output = self.activation_y_rumors(v)
+                outputs += [output]
+                return torch.stack(outputs), h_prev_shared, h_prev_stances
