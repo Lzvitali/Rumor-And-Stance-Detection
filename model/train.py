@@ -1,4 +1,4 @@
-from model.models import GRUTaskSpecific, GRUCELLShared
+from model.models import GRUMultiTask
 import numpy as np
 import torch
 import torch.nn as nn
@@ -57,34 +57,25 @@ def main():
     else:
         device = torch.device("cpu")
 
-    # create models
-    model_shared = GRUCELLShared(df.input_length, df.hidden_length)
-    model_gru_rumors = GRUTaskSpecific(model_shared, df.output_dim_rumors, df.task_rumors_no, df.input_length, df.hidden_length)
-    model_gru_stances = GRUTaskSpecific(model_shared, df.output_dim_stances, df.task_stances_no, df.input_length, df.hidden_length)
-    model_shared.to(device)
-    model_gru_rumors.to(device)
-    model_gru_stances.to(device)
+    # create the model
+    model = GRUMultiTask(df.input_length, df.hidden_length)
 
-    # for rumors
-    criterion_rumors = nn.CrossEntropyLoss()
-    optimizer_rumors = torch.optim.Adam(model_gru_rumors.parameters(), lr=lr)
+    model.to(device)
 
-    # for stances
-    criterion_stances = nn.CrossEntropyLoss()
-    optimizer_stances = torch.optim.Adam(model_gru_stances.parameters(), lr=lr)
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    model_gru_rumors.train()
-    model_gru_stances.train()
+    # train the model
+    model.train()  # set the model to train mode
 
     counter_batches = 0
-    valid_loss_min_rumors = np.Inf
-    valid_loss_min_stances = np.Inf
+    valid_loss_min = np.Inf
 
     for i in range(epochs):
-        h_prev_shared_rumors = model_shared.init_state().to(device)
-        h_prev_task_rumors = model_gru_rumors.init_state().to(device)
-        h_prev_shared_stances = model_shared.init_state().to(device)
-        h_prev_task_stances = model_gru_stances.init_state().to(device)
+        h_prev_task_rumors = torch.zeros(df.hidden_length).to(device)
+        h_prev_task_stances = torch.zeros(df.hidden_length).to(device)
+        h_prev_shared = torch.zeros(df.hidden_length).to(device)
 
         for (inputs_rumors, labels_rumors), (inputs_stances, labels_stances) \
                 in zip(train_loader_rumors, train_loader_stances):
@@ -92,82 +83,14 @@ def main():
 
             # for rumors
             inputs_rumors, labels_rumors = inputs_rumors.to(device), labels_rumors.to(device)
-
-            optimizer_rumors.zero_grad()
-            out_r, h_prev_shared_rumors, h_prev_task_rumors = model_gru_rumors(inputs_rumors, h_prev_shared_rumors,
-                                                                               h_prev_task_rumors)
-            out_r = out_r.to(device)
-            loss_rumors = criterion_rumors(out_r, (torch.max(labels_rumors, 1)[1]).to(device))  # (torch.max(labels_rumors, 1)[1]).to(device)
+            optimizer.zero_grad()
+            output, h_prev_shared, h_prev_task_rumors = model(inputs_rumors, h_prev_shared, h_prev_task_rumors,
+                                                              df.task_rumors_no)
+            output.to(device)
+            loss_rumors = criterion(output, (torch.max(labels_rumors, 1)[1]).to(device))
             print('Rumors loss: ' + str(loss_rumors.item()))
-            h_prev_shared_rumors.detach_()
-            h_prev_task_rumors.detach_()
             loss_rumors.backward()
-            optimizer_rumors.step()
-
-            # for stances
-            inputs_stances, labels_stances = inputs_stances.to(device), labels_stances.to(device)
-
-            optimizer_stances.zero_grad()
-            out_s, h_prev_shared_stances, h_prev_task_stances = model_gru_stances(inputs_stances,h_prev_shared_stances,
-                                                                                  h_prev_task_stances)
-            out_s = out_s.to(device)
-            loss_stances = criterion_stances(out_s, (torch.max(labels_stances, 1)[1]).to(device))  # (torch.max(labels_stances, 1)[1]).to(device)
-            print('Stances loss: ' + str(loss_stances.item()))
-            h_prev_shared_stances.detach_()
-            h_prev_task_stances.detach_()
-            loss_stances.backward()
-            optimizer_stances.step()
-
-            # make the validation for rumors
-            print('\nValidation for rumor detection model: ')
-            val_losses = []
-            h_t_prev_shared_validation = model_shared.init_state().to(device)
-            h_t_prev_task_validation = model_gru_rumors.init_state().to(device)
-            model_gru_rumors.eval()
-            for inp, lab in val_loader_rumors:
-                inp, lab = inp.to(device), lab.to(device)
-                out_v_r, h_t_prev_shared_validation, h_t_prev_task_validation = model_gru_rumors(inp,
-                                                                                                 h_t_prev_shared_validation,
-                                                                                                 h_t_prev_task_validation)
-                out_v_r = out_v_r.to(device)
-                val_loss = criterion_rumors(out_v_r, (torch.max(lab, 1)[1]).to(device))  # (torch.max(lab, 1)[1]).to(device)
-                val_losses.append(val_loss.item())
-
-            model_gru_rumors.train()
-            print("Epoch: {}/{}...".format(i + 1, epochs),
-                  "batch: {}...".format(counter_batches),
-                  "Loss: {:.6f}...".format(loss_rumors.item()),
-                  "Val Loss: {:.6f}".format(np.mean(val_losses)))
-            if np.mean(val_losses) <= valid_loss_min_rumors:
-                torch.save(model_gru_rumors.state_dict(), './state_dict_rumors.pt')
-                print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(valid_loss_min_rumors,
-                                                                                                np.mean(val_losses)))
-                valid_loss_min_rumors = np.mean(val_losses)
-
-            # make the validation for stances
-            print('\nValidation for stance classification model: ')
-            val_losses = []
-            h_t_prev_shared_validation = model_shared.init_state().to(device)
-            h_t_prev_task_validation = model_gru_stances.init_state().to(device)
-            model_gru_stances.eval()
-            for inp, lab in val_loader_stances:
-                inp, lab = inp.to(device), lab.to(device)
-                out_v_s, h_t_prev_shared_validation, h_t_prev_task_validation = model_gru_stances(inp,
-                                                                                              h_t_prev_shared_validation
-                                                                                              , h_t_prev_task_validation)
-                val_loss = criterion_stances(out_v_s, (torch.max(lab, 1)[1]).to(device))  # (torch.max(lab, 1)[1]).to(device)
-                val_losses.append(val_loss.item())
-
-            model_gru_stances.train()
-            print("Epoch: {}/{}...".format(i + 1, epochs),
-                  "batch: {}...".format(counter_batches),
-                  "Loss: {:.6f}...".format(loss_stances.item()),
-                  "Val Loss: {:.6f}".format(np.mean(val_losses)))
-            if np.mean(val_losses) <= valid_loss_min_stances:
-                torch.save(model_gru_stances.state_dict(), './state_dict_stances.pt')
-                print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(valid_loss_min_stances,
-                                                                                                np.mean(val_losses)))
-                valid_loss_min_stances = np.mean(val_losses)
+            optimizer.step()
 
 
 if __name__ == '__main__':
