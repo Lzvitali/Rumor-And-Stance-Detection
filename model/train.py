@@ -19,13 +19,13 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   '..\\data\\preprocessed data\\validation\\stances_labels.npy',
 }
 
-batch_size_training_rumors = 56  # 149  # 28
-batch_size_training_stances = 900  # 2260  # 450
+batch_size_training_rumors = 75  # 56  # 149  # 28
+batch_size_training_stances = 1130  # 900  # 2260  # 450
 
 batch_size_validation_rumors = 14  # 28  # 14
 batch_size_validation_stances = 525  # 1049  # 525
 
-lr = 0.01  # 0.005  # learning rate
+lr = 0.001  # 0.005  # learning rate
 epochs = 10
 
 
@@ -64,7 +64,8 @@ def main():
     # Loss and optimizer
     # criterion = nn.CrossEntropyLoss()  # with CrossEntropyLoss
     # criterion = nn.L1Loss() # with L1Loss
-    criterion = nn.BCELoss()  # with BCELoss
+    criterion = nn.MSELoss()  # with MSELoss
+    # criterion = nn.BCELoss()  # with BCELoss
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -95,8 +96,8 @@ def main():
                                                                 h_prev_rumors=h_prev_task_rumors)
             # loss_rumors = criterion(output_r, (torch.max(labels_rumors, 1)[1]).to(device))  # with CrossEntropyLoss
             # loss_rumors = criterion(output_r, labels_rumors)  # with L1Loss
-            loss_rumors = criterion(output_r, labels_rumors.float())  # with BCELoss
-            print('Rumors loss: ' + str(loss_rumors.item()))
+            loss_rumors = criterion(output_r, labels_rumors.float())  # with BCELoss OR  with MSELoss
+            print('\nRumors loss: ' + str(loss_rumors.item()))
             # nn.utils.clip_grad_norm_(model.parameters(), 5)
             loss_rumors.backward()  # retain_graph=True
             optimizer.step()
@@ -104,7 +105,7 @@ def main():
 
             # -------------------------- Validation ----------------------------------
             # make the validation for rumors
-            print('\nValidation for rumor detection model: ')
+            print('Validation for rumor detection model: ')
             val_losses = []
             h_val = model.init_hidden()
             h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
@@ -115,7 +116,7 @@ def main():
                                                                            h_prev_rumors=h_prev_task_rumors_val)
                 # val_loss = criterion(out_v_r, (torch.max(lab, 1)[1]).to(device))  # with CrossEntropyLoss
                 # val_loss = criterion(out_v_r, lab)  # with L1Loss
-                val_loss = criterion(out_v_r, lab.float())  # with BCELoss
+                val_loss = criterion(out_v_r, lab.float())  # with BCELoss OR  with MSELoss
                 val_losses.append(val_loss.item())
 
             model.train()
@@ -139,8 +140,8 @@ def main():
                                                                  h_prev_stances=h_prev_task_stances)
             # loss_stances = criterion(output_s, (torch.max(labels_stances, 1)[1]).to(device))  # with CrossEntropyLoss
             # loss_stances = criterion(output_s, labels_stances)  # with L1Loss
-            loss_stances = criterion(output_s, labels_stances.float())  # with BCELoss
-            print('Stances loss: ' + str(loss_stances.item()))
+            loss_stances = criterion(output_s, labels_stances.float())  # with BCELoss OR  with MSELoss
+            print('\nStances loss: ' + str(loss_stances.item()))
             # nn.utils.clip_grad_norm_(model.parameters(), 5)
             loss_stances.backward()
             optimizer.step()
@@ -148,7 +149,7 @@ def main():
 
             # -------------------------- Validation ----------------------------------
             # make the validation for stances
-            print('\nValidation for stance classification model: ')
+            print('Validation for stance classification model: ')
             val_losses = []
             h_val = model.init_hidden()
             h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
@@ -159,7 +160,7 @@ def main():
                                                                             h_prev_stances=h_prev_task_stances_val)
                 # val_loss = criterion(out_v_s, (torch.max(lab, 1)[1]).to(device))  # with CrossEntropyLoss
                 # val_loss = criterion(out_v_s, lab)  # with L1Loss
-                val_loss = criterion(out_v_s, lab.float())  # with BCELoss
+                val_loss = criterion(out_v_s, lab.float())  # with BCELoss OR  with MSELoss
                 val_losses.append(val_loss.item())
 
             model.train()

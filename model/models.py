@@ -102,11 +102,13 @@ class GRUMultiTask(torch.nn.Module):
                 v = self.linear_v_rumors(h_prev_rumors)
                 v = self.activation_y_tanh_rumors(v)
                 output = self.activation_y_softmax_rumors(v)
+                # output = v
             else:  # m == df.task_stances_no
                 h_prev_stances = self.gru_cell_stances(raw, h_prev_stances, h_prev_shared)
                 v = self.linear_v_stances(h_prev_stances)
                 v = self.activation_y_tanh_stances(v)
                 output = self.activation_y_softmax_stances(v)
+                # output = v
 
             outputs.append(output)
         if m == df.task_rumors_no:
