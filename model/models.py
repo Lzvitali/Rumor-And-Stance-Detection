@@ -67,68 +67,6 @@ class GRUCELLTaskSpecific(torch.nn.Module):
         return h_new
 
 
-class GRUCELLShared(torch.nn.Module):
-    """
-    Our implementation of the GRUCELL for the shared layer.
-    Used by each of the tasks.
-    """
-    def __init__(self, input_length=250, hidden_length=100):
-        super(GRUCELLShared, self).__init__()
-        self.input_length = input_length
-        self.hidden_length = hidden_length
-
-        # update gate components
-        self.linear_w_z = nn.Linear(self.input_length, self.hidden_length, bias=True)
-        self.linear_u_z = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.linear_us_z = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.activation_z = nn.Sigmoid()
-
-        # reset gate components
-        self.linear_w_r = nn.Linear(self.input_length, self.hidden_length, bias=True)
-        self.linear_u_r = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.linear_us_r = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.activation_r = nn.Sigmoid()
-
-        # new memory components
-        self.linear_w_hn = nn.Linear(self.input_length, self.hidden_length, bias=True)
-        self.linear_u_hn = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.linear_us_hn = nn.Linear(self.hidden_length, self.hidden_length, bias=True)
-        self.activation_hn = nn.Tanh()
-
-    def update_gate(self, x, h_prev):
-        x_new = self.linear_w_z(x)
-        h_new = self.linear_u_z(h_prev)
-        z = self.activation_z(x_new + h_new)
-        return z
-
-    def reset_gate(self, x, h_prev):
-        x_new = self.linear_w_r(x)
-        h_new = self.linear_u_r(h_prev)
-        r = self.activation_r(x_new + h_new)
-        return r
-
-    def new_memory(self, x, h_prev, r):
-        x_new = self.linear_w_hn(x)
-        h_new = r * self.linear_u_hn(h_prev)
-        nm = self.activation_hn(x_new + h_new)
-        return nm
-
-    def forward(self, x, h_prev):
-        # Equation 1: the update gate
-        z = self.update_gate(x, h_prev)
-
-        # Equation 2. reset gate vector
-        r = self.reset_gate(x, h_prev)
-
-        # Equation 3: The new memory component
-        nm = self.new_memory(x, h_prev, r)
-
-        # Equation 4: the new hidden state
-        h_new = (1 - z) * nm + z * h_prev
-
-        return h_new
-
-
 class GRUMultiTask(torch.nn.Module):
     """
     Our implementation of the GRU for the task specific layer.
@@ -138,9 +76,9 @@ class GRUMultiTask(torch.nn.Module):
         self.input_length = input_length
         self.hidden_length = hidden_length
 
-        self.gru_cell_rumors = nn.GRUCell(input_length, hidden_length, True)
-        self.gru_cell_stances = nn.GRUCell(input_length, hidden_length, True)
-        self.gru_cell_shared = GRUCELLShared(input_length, hidden_length)
+        self.gru_cell_rumors = GRUCELLTaskSpecific(self.input_length, self.hidden_length)
+        self.gru_cell_stances = GRUCELLTaskSpecific(self.input_length, self.hidden_length)
+        self.gru_cell_shared = nn.GRUCell(self.input_length, self.hidden_length, True)
 
         # for final classification
         self.linear_v_rumors = nn.Linear(self.hidden_length, df.output_dim_rumors, bias=True)
@@ -152,17 +90,25 @@ class GRUMultiTask(torch.nn.Module):
     def forward(self, batch, h_prev_shared, m, h_prev_rumors=None, h_prev_stances=None):
         outputs = []
         for raw in batch:
-            h_prev_shared = self.gru_cell_shared(raw, h_prev_shared)
+            r = raw.view(1, self.input_length)
+            h_s = h_prev_shared.view(1, self.hidden_length)
+            h_prev_shared = self.gru_cell_shared(r, h_s)
+            h_prev_shared = h_prev_shared.view(self.hidden_length)
+
+            # h1 = torch.rand(100).to('cuda').detach()
+            # h2 = torch.rand(100).to('cuda').detach()
 
             if m == df.task_rumors_no:
                 h_prev_rumors = self.gru_cell_rumors(raw, h_prev_rumors, h_prev_shared)
                 v = self.linear_v_rumors(h_prev_rumors)
                 output = self.activation_y_rumors(v)
-                outputs += [output]
-                return torch.stack(outputs), h_prev_shared, h_prev_rumors
             else:  # m == df.task_stances_no
                 h_prev_stances = self.gru_cell_stances(raw, h_prev_stances, h_prev_shared)
                 v = self.linear_v_stances(h_prev_stances)
                 output = self.activation_y_rumors(v)
-                outputs += [output]
-                return torch.stack(outputs), h_prev_shared, h_prev_stances
+
+            outputs += [output]
+        if m == df.task_rumors_no:
+            return torch.stack(outputs), h_prev_shared, h_prev_rumors
+        else:  # m == df.task_stances_no
+            return torch.stack(outputs), h_prev_shared, h_prev_stances

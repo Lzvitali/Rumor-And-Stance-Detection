@@ -59,7 +59,6 @@ def main():
 
     # create the model
     model = GRUMultiTask(df.input_length, df.hidden_length)
-
     model.to(device)
 
     # Loss and optimizer
@@ -70,7 +69,8 @@ def main():
     model.train()  # set the model to train mode
 
     counter_batches = 0
-    valid_loss_min = np.Inf
+    valid_loss_min_rumors = np.Inf
+    valid_loss_min_stances = np.Inf
 
     for i in range(epochs):
         h_prev_task_rumors = torch.zeros(df.hidden_length).to(device)
@@ -84,12 +84,23 @@ def main():
             # for rumors
             inputs_rumors, labels_rumors = inputs_rumors.to(device), labels_rumors.to(device)
             optimizer.zero_grad()
-            output, h_prev_shared, h_prev_task_rumors = model(inputs_rumors, h_prev_shared, h_prev_task_rumors,
-                                                              df.task_rumors_no)
-            output.to(device)
-            loss_rumors = criterion(output, (torch.max(labels_rumors, 1)[1]).to(device))
+            output_r, h_prev_shared, h_prev_task_rumors = model(inputs_rumors, h_prev_shared, df.task_rumors_no,
+                                                                h_prev_rumors=h_prev_task_rumors)
+
+            loss_rumors = criterion(output_r, (torch.max(labels_rumors, 1)[1]).to(device))
             print('Rumors loss: ' + str(loss_rumors.item()))
-            loss_rumors.backward()
+            loss_rumors.backward(retain_graph=True)
+            optimizer.step()
+
+            # for stances
+            inputs_stances, labels_stances = inputs_stances.to(device), labels_stances.to(device)
+            optimizer.zero_grad()
+            output_s, h_prev_shared, h_prev_task_stances = model(inputs_stances, h_prev_shared, df.task_stances_no,
+                                                                 h_prev_stances=h_prev_task_stances)
+
+            loss_stances = criterion(output_s, (torch.max(labels_stances, 1)[1]).to(device))
+            print('Stances loss: ' + str(loss_stances.item()))
+            loss_stances.backward()
             optimizer.step()
 
 
