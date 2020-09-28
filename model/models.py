@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import model.defines as df
+import defines as df
 
 
 class GRUCELLTaskSpecific(torch.nn.Module):
