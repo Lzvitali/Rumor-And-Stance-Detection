@@ -128,4 +128,4 @@ dmypy.json
 data/preprocessed data/
 data/raw data/
 embedding/model_skipgram.bin
-model/tests_pytorch.py
+tests_pytorch.py

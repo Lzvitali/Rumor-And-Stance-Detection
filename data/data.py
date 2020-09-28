@@ -66,12 +66,12 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
                                   no_digits=False,  # replace all digits with a special token
                                   no_currency_symbols=True,  # replace all currency symbols with a special token
                                   no_punct=True,  # fully remove punctuation
-                                  replace_with_url=" ",
-                                  replace_with_email=" ",
-                                  replace_with_phone_number=" ",
-                                  replace_with_number=" ",
-                                  replace_with_digit=" ",
-                                  replace_with_currency_symbol=" ",
+                                  replace_with_url="<URL>",
+                                  replace_with_email="<EMAIL>",
+                                  replace_with_phone_number="<PHONE>",
+                                  replace_with_number="<NUMBER>",
+                                  replace_with_digit="0",
+                                  replace_with_currency_symbol="<CUR>",
                                   lang="en")
             if tweet_id in rumors_labels:
                 tweet_label = rumors_labels[tweet_id]
