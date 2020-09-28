@@ -71,10 +71,15 @@ class GRUMultiTask(torch.nn.Module):
     """
     Our implementation of the GRU for the task specific layer.
     """
-    def __init__(self, input_length=250, hidden_length=100):
+    def __init__(self, input_length=250, hidden_length=100, loss_func='CrossEntropyLoss'):
         super(GRUMultiTask, self).__init__()
         self.input_length = input_length
         self.hidden_length = hidden_length
+
+        if loss_func != 'CrossEntropyLoss' and loss_func != 'BCELoss' and loss_func != 'L1Loss' and loss_func != 'MSELoss':
+            self.loss_func = 'CrossEntropyLoss'
+        else:
+            self.loss_func = loss_func
 
         self.gru_cell_rumors = GRUCELLTaskSpecific(self.input_length, self.hidden_length)
         self.gru_cell_stances = GRUCELLTaskSpecific(self.input_length, self.hidden_length)
@@ -82,12 +87,15 @@ class GRUMultiTask(torch.nn.Module):
 
         # for final classification
         self.linear_v_rumors = nn.Linear(self.hidden_length, df.output_dim_rumors, bias=True)
-        self.activation_y_tanh_rumors = nn.Tanh()
-        self.activation_y_softmax_rumors = nn.Softmax(dim=0)
+
+        if self.loss_func != 'CrossEntropyLoss':
+            self.activation_y_tanh_rumors = nn.Tanh()
+            self.activation_y_softmax_rumors = nn.Softmax(dim=0)
 
         self.linear_v_stances = nn.Linear(self.hidden_length, df.output_dim_stances, bias=True)
-        self.activation_y_tanh_stances = nn.Tanh()
-        self.activation_y_softmax_stances = nn.Softmax(dim=0)
+        if self.loss_func != 'CrossEntropyLoss':
+            self.activation_y_tanh_stances = nn.Tanh()
+            self.activation_y_softmax_stances = nn.Softmax(dim=0)
 
     def forward(self, batch, h_prev_shared, m, h_prev_rumors=None, h_prev_stances=None):
         outputs = []
@@ -100,15 +108,19 @@ class GRUMultiTask(torch.nn.Module):
             if m == df.task_rumors_no:
                 h_prev_rumors = self.gru_cell_rumors(raw, h_prev_rumors, h_prev_shared)
                 v = self.linear_v_rumors(h_prev_rumors)
-                v = self.activation_y_tanh_rumors(v)
-                output = self.activation_y_softmax_rumors(v)
-                # output = v
+                if self.loss_func != 'CrossEntropyLoss':
+                    v = self.activation_y_tanh_rumors(v)
+                    output = self.activation_y_softmax_rumors(v)
+                else:
+                    output = v
             else:  # m == df.task_stances_no
                 h_prev_stances = self.gru_cell_stances(raw, h_prev_stances, h_prev_shared)
                 v = self.linear_v_stances(h_prev_stances)
-                v = self.activation_y_tanh_stances(v)
-                output = self.activation_y_softmax_stances(v)
-                # output = v
+                if self.loss_func != 'CrossEntropyLoss':
+                    v = self.activation_y_tanh_stances(v)
+                    output = self.activation_y_softmax_stances(v)
+                else:
+                    output = v
 
             outputs.append(output)
         if m == df.task_rumors_no:
