@@ -146,7 +146,9 @@ def main():
             print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
         # check time so far
         time_after_epoch = time.time() - time_before_training
+        print('-----------------------------------------')
         print("Time so far: {:.3}".format((time_after_epoch/60)) + ' min')
+        print('-----------------------------------------')
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
