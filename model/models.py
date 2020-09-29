@@ -5,7 +5,8 @@ import defines as df
 
 class GRUCELLTaskSpecific(torch.nn.Module):
     """
-    This class is our GRUCELL for the task specific layers, which includes the sharedGRU result in it`s computations.
+    This class is our implementation of GRUCELL for the task specific layers,
+    which includes the sharedGRU result in it`s computations.
     """
     def __init__(self, input_length=250, hidden_length=100):
         super(GRUCELLTaskSpecific, self).__init__()
@@ -69,7 +70,8 @@ class GRUCELLTaskSpecific(torch.nn.Module):
 
 class GRUMultiTask(torch.nn.Module):
     """
-    Our implementation of the GRU for the task specific layer.
+    Our implementation of the Multi-task GRU model, containing 3 GRU layers: 1 shared layer for both tasks
+    and task specific layer for each task.
     """
     def __init__(self, input_length=250, hidden_length=100, loss_func='CrossEntropyLoss'):
         super(GRUMultiTask, self).__init__()
@@ -87,13 +89,13 @@ class GRUMultiTask(torch.nn.Module):
 
         # for final classification
         self.linear_v_rumors = nn.Linear(self.hidden_length, df.output_dim_rumors, bias=True)
+        self.linear_v_stances = nn.Linear(self.hidden_length, df.output_dim_stances, bias=True)
 
+        # if we use CrossEntropyLoss we don't need to apply softmax because
+        # it (CrossEntropyLoss) apply a log_softmax layer after our final layer
         if self.loss_func != 'CrossEntropyLoss':
             self.activation_y_tanh_rumors = nn.Tanh()
             self.activation_y_softmax_rumors = nn.Softmax(dim=0)
-
-        self.linear_v_stances = nn.Linear(self.hidden_length, df.output_dim_stances, bias=True)
-        if self.loss_func != 'CrossEntropyLoss':
             self.activation_y_tanh_stances = nn.Tanh()
             self.activation_y_softmax_stances = nn.Softmax(dim=0)
 

@@ -19,13 +19,13 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   'data\\preprocessed data\\validation\\stances_labels.npy',
 }
 
-batch_size_training_rumors = 28
-batch_size_training_stances = 28
+batch_size_training_rumors = 29
+batch_size_training_stances = 29
 
-batch_size_validation_rumors = 28
+batch_size_validation_rumors = 100
 batch_size_validation_stances = 1049
 
-loss_function = 'CrossEntropyLoss'      # options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
+loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
 learning_rate = 0.0005                  # learning rate
 epochs = 100
 
@@ -86,7 +86,7 @@ def main():
 
     for i in range(epochs):
         h = model.init_hidden()
-        print('\nEpoch: ' + str(i))
+        print('\nEpoch: ' + str(i + 1))
 
         counter_batches = 0
         cnt_correct_training_rumors = 0
@@ -113,13 +113,14 @@ def main():
             sum_loss_training_stances += loss_stances.item()
 
             # make validation and save the model if it is the best until now
-            cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i,
-                                                validation_min_loss, loss_rumors, counter_batches)
-            cnt_correct_validation_rumors += cnt_correct
+            if i > 5:
+                cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i,
+                                                    validation_min_loss, loss_rumors, counter_batches)
+                cnt_correct_validation_rumors += cnt_correct
 
-            cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i,
-                                                validation_min_loss, loss_stances, counter_batches)
-            cnt_correct_validation_stances += cnt_correct
+                cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i,
+                                                    validation_min_loss, loss_stances, counter_batches)
+                cnt_correct_validation_stances += cnt_correct
 
         # print accuracy and loss of the training
         training_loss_rumors = sum_loss_training_rumors / counter_batches
@@ -135,11 +136,12 @@ def main():
         print('-----------------------------------------')
 
         # print accuracy of the validation
-        validation_acc_rumors = cnt_correct_validation_rumors / (batch_size_validation_rumors * counter_batches)
-        print("Validation accuracy rumors: {:.3f}%".format(validation_acc_rumors * 100))
+        if i > 5:
+            validation_acc_rumors = cnt_correct_validation_rumors / (batch_size_validation_rumors * counter_batches)
+            print("Validation accuracy rumors: {:.3f}%".format(validation_acc_rumors * 100))
 
-        validation_acc_stances = cnt_correct_validation_stances / (batch_size_validation_stances * counter_batches)
-        print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
+            validation_acc_stances = cnt_correct_validation_stances / (batch_size_validation_stances * counter_batches)
+            print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):

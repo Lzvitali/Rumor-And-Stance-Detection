@@ -1,5 +1,7 @@
 """
 This script converts the csv data that 'data.py' generates into '.npy' files (after embedding with FastText)
+Then it expands each '.npy' file (of rumor detection task) with data from 'Twitter15-16' dataset.
+Twitter15-16' dataset can be found here:
 """
 
 import fasttext
@@ -127,12 +129,54 @@ def prepare_data_from_txt(fasttext_model):
 
         i += 1
 
-    y = np.load(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy')) \
+    # load the previous data, concatenate with the new and save it
+    # validation - tweets
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_tweets.npy')) \
+        if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_tweets.npy')) \
+        else []  # get data if exist
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_tweets.npy'),
+            np.concatenate([previous, tweets_validation]))  # save the new
+
+    # validation - labels
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_labels.npy')) \
+        if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_labels.npy')) \
+        else []  # get data if exist
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_labels.npy'),
+            np.concatenate([previous, labels_validation]))  # save the new
+
+    print('\n72 rumor tweets added to: Validation set')
+
+    # test - tweets
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_tweets.npy')) \
+        if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_tweets.npy')) \
+        else []  # get data if exist
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_tweets.npy'),
+            np.concatenate([previous, tweets_test]))  # save the new
+
+    # test - labels
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_labels.npy')) \
+        if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_labels.npy')) \
+        else []  # get data if exist
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_labels.npy'),
+            np.concatenate([previous, labels_test]))  # save the new
+
+    print('44 rumor tweets added to: Test set')
+
+    # training - tweets
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_tweets.npy')) \
         if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_tweets.npy')) \
         else []  # get data if exist
-    np.save("save.npy", np.concatenate([y, labels_validation]))  # save the new
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_tweets.npy'),
+            np.concatenate([previous, tweets_training]))  # save the new
 
-    x = np.load("save.npy")
+    # training - labels
+    previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy')) \
+        if os.path.isfile(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy')) \
+        else []  # get data if exist
+    np.save(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy'),
+            np.concatenate([previous, labels_training]))  # save the new
+
+    print(str(cnt_relevant_tweets - 72 - 44) + ' rumor tweets added to: Training set')
 
     tweets_file.close()
     labels_file.close()
@@ -204,8 +248,6 @@ def main():
     else:
         model = fasttext.load_model(skipgram_path)
 
-    prepare_data_from_txt(model)
-
     # ------------------------------------- From: RumourEval 2019 Dataset ---------------------------------------------
 
     # go through the dataset and use fasttest (for embedding) to create numpy arrays
@@ -238,7 +280,7 @@ def main():
 
     # ------------------------------------- From: Tweeter 15 & 16 Dataset ---------------------------------------------
 
-    prepare_data_from_txt()
+    prepare_data_from_txt(model)
 
     # End: From: Tweeter 15 & 16 Dataset ------------------------------------------------------------------------------
 
