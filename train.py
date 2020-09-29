@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import defines as df
-
+import time
 
 # Preprocessed data paths
 preprocessed_data_paths = {
@@ -20,13 +20,13 @@ preprocessed_data_paths = {
 }
 
 batch_size_training_rumors = 29
-batch_size_training_stances = 29
+batch_size_training_stances = 58
 
 batch_size_validation_rumors = 100
 batch_size_validation_stances = 1049
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0005                  # learning rate
+learning_rate = 0.00005                  # learning rate
 epochs = 100
 
 
@@ -83,6 +83,8 @@ def main():
         'rumor':    np.Inf,
         'stance':   np.Inf
     }
+    # check time before training
+    time_before_training = time.time()
 
     for i in range(epochs):
         h = model.init_hidden()
@@ -142,6 +144,9 @@ def main():
 
             validation_acc_stances = cnt_correct_validation_stances / (batch_size_validation_stances * counter_batches)
             print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
+        # check time so far
+        time_after_epoch = time.time() - time_before_training
+        print("Time so far: {:.3}".format((time_after_epoch/60)) + ' min')
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
