@@ -26,7 +26,7 @@ batch_size_validation_rumors = 100
 batch_size_validation_stances = 1049
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.00005                  # learning rate
+learning_rate = 0.0001                  # learning rate
 epochs = 100
 
 
@@ -83,6 +83,12 @@ def main():
         'rumor':    np.Inf,
         'stance':   np.Inf
     }
+
+    last_save = {
+        'rumor': 0,
+        'stance': 0
+    }
+
     # check time before training
     time_before_training = time.time()
 
@@ -117,11 +123,11 @@ def main():
             # make validation and save the model if it is the best until now
             if i > 5:
                 cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i,
-                                                    validation_min_loss, loss_rumors, counter_batches)
+                                                    validation_min_loss, loss_rumors, counter_batches, last_save)
                 cnt_correct_validation_rumors += cnt_correct
 
                 cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i,
-                                                    validation_min_loss, loss_stances, counter_batches)
+                                                    validation_min_loss, loss_stances, counter_batches, last_save)
                 cnt_correct_validation_stances += cnt_correct
 
         # print accuracy and loss of the training
@@ -133,17 +139,23 @@ def main():
         training_loss_stances = sum_loss_training_stances / counter_batches
         print("Training loss stances: {:.3f}".format(training_loss_stances))
         training_acc_stances = cnt_correct_training_stances / (batch_size_training_stances * counter_batches)
-        print("Training accuracy stances: {:.3f}%\n".format(training_acc_stances * 100))
-
-        print('-----------------------------------------')
+        print("Training accuracy stances: {:.3f}%".format(training_acc_stances * 100))
 
         # print accuracy of the validation
         if i > 5:
+            print('-----------------------------------------')
+
             validation_acc_rumors = cnt_correct_validation_rumors / (batch_size_validation_rumors * counter_batches)
             print("Validation accuracy rumors: {:.3f}%".format(validation_acc_rumors * 100))
 
             validation_acc_stances = cnt_correct_validation_stances / (batch_size_validation_stances * counter_batches)
             print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
+
+            print('-----------------------------------------')
+
+            print('Last save for rumors: epoch ' + str(last_save['rumor']))
+            print('Last save for stances: epoch ' + str(last_save['stance']))
+
         # check time so far
         time_after_epoch = time.time() - time_before_training
         print('-----------------------------------------')
@@ -202,7 +214,7 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
 
 
 def validation_or_testing(model, task_name, data_loader, criterion, device, epoch_no=None, min_loss_dict=None,
-                          loss_train=None, batch_no=None, operation='validation'):
+                          loss_train=None, batch_no=None, last_save_dict=None, operation='validation'):
     """
     Makes validation on specific task. Saves the dict of the model if it gave the best results so far.
     Returns the number of correct predictions
@@ -215,6 +227,7 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
     :param min_loss_dict:   dictionary that contains the min losses of each task
     :param loss_train:      the loss of the training at this point of time
     :param batch_no:        batch no
+    :param last_save_dict   dictionary containing the the last epoch where a save happened for each task
     :param operation:       'validation' or 'testing'
     :return:                number of correct predictions
     """
@@ -256,12 +269,12 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
         all_losses.append(loss.item())
 
     if 'validation' == operation:
-        print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict)
+        print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict)
 
     return sum_correct
 
 
-def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict):
+def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict):
     """
     Prints the details of the validation and saves the dict of the model if it gave the best results so far.
     :param model:           the multi-task model
@@ -271,6 +284,7 @@ def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses,
     :param loss_train:      the loss of the training
     :param all_losses:      list with all the losses of the validation
     :param min_loss_dict:   dictionary that contains the min losses of each task
+    :param last_save_dict   dictionary containing the the last epoch where a save happened for each task
     :return:                void
     """
     model.train()  # set the model to train mode
@@ -283,6 +297,7 @@ def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses,
         print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict[task_name],
                                                                                           np.mean(all_losses)))
         min_loss_dict[task_name] = np.mean(all_losses)
+        last_save_dict[task_name] = epoch_no + 1
     else:
         print()
 
