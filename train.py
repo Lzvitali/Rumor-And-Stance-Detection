@@ -5,6 +5,8 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import defines as df
 import time
+from time import gmtime, strftime
+from datetime import datetime
 
 # Preprocessed data paths
 preprocessed_data_paths = {
@@ -26,7 +28,7 @@ batch_size_validation_rumors = 100
 batch_size_validation_stances = 1049
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0001                  # learning rate
+learning_rate = 0.0003                  # learning rate
 epochs = 100
 
 
@@ -90,7 +92,8 @@ def main():
     }
 
     # check time before training
-    time_before_training = time.time()
+    start_time = gmtime()
+    start_time = strftime("%H:%M:%S", start_time)
 
     for i in range(epochs):
         h = model.init_hidden()
@@ -157,10 +160,14 @@ def main():
             print('Last save for stances: epoch ' + str(last_save['stance']))
 
         # check time so far
-        time_after_epoch = time.time() - time_before_training
+        finish_time = gmtime()
+        finish_time = strftime("%H:%M:%S", finish_time)
+        formats = "%H:%M:%S"
+        time_so_far = datetime.strptime(finish_time, formats) - datetime.strptime(start_time, formats)
         print('-----------------------------------------')
-        print("Time so far: {:.3}".format((time_after_epoch/60)) + ' min')
+        print("Total runtime: ", time_so_far)
         print('-----------------------------------------')
+
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
