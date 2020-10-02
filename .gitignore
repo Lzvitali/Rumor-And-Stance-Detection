@@ -127,5 +127,6 @@ dmypy.json
 # Dataset files
 data/preprocessed data/
 data/raw data/
+embedding/Skipgram - 250
 embedding/model_skipgram.bin
 tests_python.py

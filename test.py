@@ -14,20 +14,20 @@ preprocessed_data_paths = {
     'test_stances_labels path': 'data\\preprocessed data\\test\\stances_labels.npy',
 }
 
-batch_size_test_rumors = 100
-batch_size_test_stances = 1066
+batch_size_test_rumors = 1  # 100
+batch_size_test_stances = 1  # 1066
 
 
 def main():
     # for rumors
     test_data_rumors = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['test_rumors_tweets path'])),
                                      torch.from_numpy(np.load(preprocessed_data_paths['test_rumors_labels path'])))
-    test_loader_rumors = DataLoader(test_data_rumors, shuffle=False, batch_size=batch_size_test_rumors)
+    test_loader_rumors = DataLoader(test_data_rumors, shuffle=True, batch_size=batch_size_test_rumors)
 
     # for stances
     test_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['test_stances_tweets path'])),
                                       torch.from_numpy(np.load(preprocessed_data_paths['test_stances_labels path'])))
-    test_loader_stances = DataLoader(test_data_stances, shuffle=False, batch_size=batch_size_test_stances)
+    test_loader_stances = DataLoader(test_data_stances, shuffle=True, batch_size=batch_size_test_stances)
 
     # torch.cuda.is_available() checks and returns a Boolean True if a GPU is available, else it'll return False
     is_cuda = torch.cuda.is_available()
@@ -57,7 +57,7 @@ def main():
     model_gru_stances.to(device)
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()  # with CrossEntropyLoss
+    criterion = nn.CrossEntropyLoss()
 
     # Loading the best model of rumor detection
     model_gru_rumors.load_state_dict(torch.load('model/state_dict_rumors.pt'))
