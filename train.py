@@ -29,11 +29,11 @@ batch_size_validation_rumors = 1  # 100
 batch_size_validation_stances = 1  # 1049
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0005                  # learning rate
+learning_rate = 0.001                  # learning rate
 epochs = 100
 
-is_dropout = True  # can be True or False
-drop_prob = 0.2
+is_dropout = False  # can be True or False
+drop_prob = 0.0
 
 
 def main():
@@ -102,13 +102,6 @@ def main():
         'stance': 0
     }
 
-    f1_scores_of_last_save = {
-        'rumor micro': 0.0,
-        'rumor macro': 0.0,
-        'stance micro': 0.0,
-        'stance macro': 0.0
-    }
-
     # check time before training
     start_time = gmtime()
     start_time = strftime("%H:%M:%S", start_time)
@@ -143,14 +136,12 @@ def main():
 
             # make validation and save the model if it is the best until now
             if i > 5:
-                cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i,
-                                                    validation_min_loss, loss_rumors, counter_batches, last_save,
-                                                    f1_scores_of_last_save)
+                cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i+1,
+                                                    validation_min_loss, loss_rumors, counter_batches, last_save)
                 cnt_correct_validation_rumors += cnt_correct
 
-                cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i,
-                                                    validation_min_loss, loss_stances, counter_batches, last_save,
-                                                    f1_scores_of_last_save)
+                cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i+1,
+                                                    validation_min_loss, loss_stances, counter_batches, last_save)
                 cnt_correct_validation_stances += cnt_correct
 
         # print accuracy and loss of the training
@@ -178,11 +169,6 @@ def main():
 
             print('Last save for rumors: epoch ' + str(last_save['rumor']))
             print('Last save for stances: epoch ' + str(last_save['stance']))
-
-            print("For rumor detection, F1 micro: {:.3f}...".format(f1_scores_of_last_save['rumor micro']))
-            print("For rumor detection, F1 macro: {:.3f}...".format(f1_scores_of_last_save['rumor macro']))
-            print("For stance detection, F1 micro: {:.3f}...".format(f1_scores_of_last_save['stance micro']))
-            print("For stance detection, F1 macro: {:.3f}...".format(f1_scores_of_last_save['stance macro']))
 
         # check time so far
         finish_time = gmtime()
@@ -245,8 +231,7 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
 
 
 def validation_or_testing(model, task_name, data_loader, criterion, device, epoch_no=None, min_loss_dict=None,
-                          loss_train=None, batch_no=None, last_save_dict=None, f1_scores_of_last_save_dict=None,
-                          operation='validation'):
+                          loss_train=None, batch_no=None, last_save_dict=None, operation='validation'):
     """
     Makes validation on specific task. Saves the dict of the model if it gave the best results so far.
     Returns the number of correct predictions
@@ -260,7 +245,6 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
     :param loss_train:                  the loss of the training at this point of time
     :param batch_no:                    batch no
     :param last_save_dict               dictionary containing the last epoch where a save happened for each task
-    :param f1_scores_of_last_save_dict  dictionary containing the F1 scores
     :param operation                    validation' or 'testing'
     :return:                            number of correct predictions
     """
@@ -292,8 +276,10 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
             out_v, h_prev_shared_val, h_prev_task_stances_val = model(inp, h_prev_shared_val, df.task_stances_no,
                                                                       h_prev_stances=h_prev_task_stances_val)
 
-        total_out_v += (torch.max(out_v, 1)[1]).to('cpu').tolist()
-        total_lab += (torch.max(lab, 1)[1]).to('cpu').tolist()
+        # we need this for calculation of F1 scores. we do it only for testing
+        if 'testing' == operation:
+            total_out_v += (torch.max(out_v, 1)[1]).to('cpu').tolist()
+            total_lab += (torch.max(lab, 1)[1]).to('cpu').tolist()
 
         # count the number of correct outputs
         sum_correct += count_correct(out_v, lab, task_name, device)
@@ -307,21 +293,21 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
             loss = criterion(out_v, (torch.max(lab, 1)[1]).to(device))
         all_losses.append(loss.item())
 
-    # print F1 micro and macro scores
-    score_f1_micro = f1_score(total_lab, total_out_v, average='micro')
-    score_f1_macro = f1_score(total_lab, total_out_v, average='macro')
-    print("F1 micro score: {:.3f}".format(score_f1_micro))
-    print("F1 macro score: {:.3f}".format(score_f1_macro))
+    # calculation of F1 scores
+    if 'testing' == operation:
+        # print F1 micro and macro scores
+        score_f1_micro = f1_score(total_lab, total_out_v, average='micro')
+        score_f1_macro = f1_score(total_lab, total_out_v, average='macro')
+        print("F1 micro score: {:.3f}".format(score_f1_micro))
+        print("F1 macro score: {:.3f}".format(score_f1_macro))
 
     if 'validation' == operation:
-        print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict,
-                       f1_scores_of_last_save_dict, score_f1_macro, score_f1_micro)
+        print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict)
 
     return sum_correct
 
 
-def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict,
-                   f1_scores_of_last_save_dict, score_f1_macro, score_f1_micro):
+def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict):
     """
     Prints the details of the validation and saves the dict of the model if it gave the best results so far.
     :param model:                       the multi-task model
@@ -332,13 +318,10 @@ def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses,
     :param all_losses:                  list with all the losses of the validation
     :param min_loss_dict:               dictionary that contains the min losses of each task
     :param last_save_dict               dictionary containing the the last epoch where a save happened for each task
-    :param f1_scores_of_last_save_dict  dictionary containing the F1 scores
-    :param score_f1_macro               F1 macro score
-    :param score_f1_micro               F1 micro score
     :return:                            void
     """
     model.train()  # set the model to train mode
-    print("Epoch: {}/{}...".format(epoch_no + 1, epochs),
+    print("Epoch: {}/{}...".format(epoch_no, epochs),
           "batch: {}...".format(batch_no),
           "Loss train: {:.6f}...".format(loss_train.item()),
           "Val Loss: {:.6f}".format(np.mean(all_losses)))
@@ -348,8 +331,6 @@ def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses,
                                                                                           np.mean(all_losses)))
         min_loss_dict[task_name] = np.mean(all_losses)
         last_save_dict[task_name] = epoch_no + 1
-        f1_scores_of_last_save_dict[task_name + " micro"] = score_f1_micro
-        f1_scores_of_last_save_dict[task_name + " macro"] = score_f1_macro
     else:
         print()
 

@@ -140,7 +140,7 @@ class GRUMultiTask(torch.nn.Module):
 
     def init_hidden(self):
         weight = next(self.parameters()).data
-        hidden = (weight.new(self.hidden_length_rumors).zero_(),  # rumors
-                  weight.new(self.hidden_length_stances).zero_(),  # stances
-                  weight.new(self.hidden_length_shared).zero_())  # shared
+        hidden = (weight.new(self.hidden_length_rumors).zero_(),   # for rumors
+                  weight.new(self.hidden_length_stances).zero_(),  # for stances
+                  weight.new(self.hidden_length_shared).zero_())   # for shared
         return hidden
