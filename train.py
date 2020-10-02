@@ -155,10 +155,10 @@ def main():
         if i > 5:
             print('-----------------------------------------')
 
-            validation_acc_rumors = cnt_correct_validation_rumors / (batch_size_validation_rumors * counter_batches)
+            validation_acc_rumors = cnt_correct_validation_rumors / (len(val_loader_rumors.dataset) * counter_batches)
             print("Validation accuracy rumors: {:.3f}%".format(validation_acc_rumors * 100))
 
-            validation_acc_stances = cnt_correct_validation_stances / (batch_size_validation_stances * counter_batches)
+            validation_acc_stances = cnt_correct_validation_stances / (len(val_loader_stances.dataset) * counter_batches)
             print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
 
             print('-----------------------------------------')
