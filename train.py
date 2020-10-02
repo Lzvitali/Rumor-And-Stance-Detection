@@ -330,7 +330,7 @@ def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses,
         print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict[task_name],
                                                                                           np.mean(all_losses)))
         min_loss_dict[task_name] = np.mean(all_losses)
-        last_save_dict[task_name] = epoch_no + 1
+        last_save_dict[task_name] = epoch_no
     else:
         print()
 
