@@ -44,7 +44,7 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
     :param writer_stances:  object used for writing into the stances csv
     :param tweet_id: tweet  id (as string)
     :param rumors_labels:   dictionary containing the labels for each tweet id that related to rumor detection task
-    :param stances_labels:  dictionary containing the labels for each tweet id that related to stance classification task
+    :param stances_labels:  dictionary containing the labels for each tweet id that related to stance detection task
     :param counters_dict:   dictionary holding 2 counters, one for each task
     :return: void
     """

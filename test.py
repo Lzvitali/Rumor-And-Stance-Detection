@@ -39,8 +39,20 @@ def main():
         device = torch.device("cpu")
 
     # create the model
-    model_gru_rumors = GRUMultiTask(input_length=df.input_length, hidden_length=df.hidden_length, loss_func='CrossEntropyLoss')
-    model_gru_stances = GRUMultiTask(input_length=df.input_length, hidden_length=df.hidden_length, loss_func='CrossEntropyLoss')
+    model_gru_rumors = GRUMultiTask(input_length=df.input_length,
+                                    hidden_length_rumors=df.hidden_length_rumors,
+                                    hidden_length_stances=df.hidden_length_stances,
+                                    hidden_length_shared=df.hidden_length_shared,
+                                    loss_func='CrossEntropyLoss',
+                                    is_dropout=False
+                                    )
+    model_gru_stances = GRUMultiTask(input_length=df.input_length,
+                                     hidden_length_rumors=df.hidden_length_rumors,
+                                     hidden_length_stances=df.hidden_length_stances,
+                                     hidden_length_shared=df.hidden_length_shared,
+                                     loss_func='CrossEntropyLoss',
+                                     is_dropout=False
+                                     )
     model_gru_rumors.to(device)
     model_gru_stances.to(device)
 
@@ -50,7 +62,7 @@ def main():
     # Loading the best model of rumor detection
     model_gru_rumors.load_state_dict(torch.load('model/state_dict_rumors.pt'))
 
-    # Loading the best model of stance classification
+    # Loading the best model of stance detection
     model_gru_stances.load_state_dict(torch.load('model/state_dict_stances.pt'))
 
     # For Rumors

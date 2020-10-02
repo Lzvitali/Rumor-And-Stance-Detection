@@ -22,13 +22,13 @@ preprocessed_data_paths = {
 }
 
 batch_size_training_rumors = 29
-batch_size_training_stances = 58
+batch_size_training_stances = 29
 
-batch_size_validation_rumors = 100
-batch_size_validation_stances = 1049
+batch_size_validation_rumors = 29  # 100
+batch_size_validation_stances = 29  # 1049
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0003                  # learning rate
+learning_rate = 0.0005                  # learning rate
 epochs = 100
 
 
@@ -62,7 +62,14 @@ def main():
         device = torch.device("cpu")
 
     # create the model
-    model = GRUMultiTask(input_length=df.input_length, hidden_length=df.hidden_length, loss_func=loss_function)
+    model = GRUMultiTask(input_length=df.input_length,
+                         hidden_length_rumors=df.hidden_length_rumors,
+                         hidden_length_stances=df.hidden_length_stances,
+                         hidden_length_shared=df.hidden_length_shared,
+                         loss_func=loss_function,
+                         is_dropout=True,
+                         drop_prob=0.25
+                         )
     model.to(device)
 
     # Loss
@@ -169,7 +176,6 @@ def main():
         print('-----------------------------------------')
 
 
-
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
     """
     Makes the forward step of specific task and returns the loss and number of correct predictions
@@ -195,10 +201,10 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
     # Forward pass to get outputs of the model
     if 'rumor' == task_name:
         outputs, h_prev_shared, h_prev_task_rumors = model(inputs_batch, h_prev_shared, df.task_rumors_no,
-                                                          h_prev_rumors=h_prev_task_rumors)
+                                                           h_prev_rumors=h_prev_task_rumors)
     else:  # 'stance' == task_name
         outputs, h_prev_shared, h_prev_task_stances = model(inputs_batch, h_prev_shared, df.task_stances_no,
-                                                           h_prev_stances=h_prev_task_stances)
+                                                            h_prev_stances=h_prev_task_stances)
 
     # Calculate Loss
     if loss_function == 'BCELoss' or loss_function == 'MSELoss':
@@ -245,7 +251,6 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
 
     # get initial 'h' vectors of model's GRUs
     h_val = model.init_hidden()
-    h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
 
     model.eval()  # set the model to evaluation mode
 
@@ -254,6 +259,8 @@ def validation_or_testing(model, task_name, data_loader, criterion, device, epoc
     # iterate through the batch
     for inp, lab in data_loader:
         inp, lab = inp.to(device), lab.to(device)
+
+        h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
 
         # Forward pass to get outputs of the model
         if 'rumor' == task_name:
