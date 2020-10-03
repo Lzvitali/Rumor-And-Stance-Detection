@@ -9,7 +9,7 @@ import os
 import csv
 import numpy as np
 import defines as df
-from cleantext import clean  # reference: https://github.com/jfilter/clean-text
+import data.data as dt
 
 # Preprocessed data folders paths
 preprocessed_data_paths_RumourEval = {
@@ -44,8 +44,26 @@ label_comment = np.array([0, 0, 0, 1], dtype=np.int64)
 
 
 def prepare_data_from_txt(fasttext_model):
-    # Opening the files
+    counters_training = {
+        'total rumors': 0,
+        'true rumor': 0,
+        'false rumor': 0,
+        'unverified rumor': 0,
+    }
+    counters_validation = {
+        'total rumors': 0,
+        'true rumor': 0,
+        'false rumor': 0,
+        'unverified rumor': 0,
+    }
+    counters_test = {
+        'total rumors': 0,
+        'true rumor': 0,
+        'false rumor': 0,
+        'unverified rumor': 0,
+    }
 
+    # Opening the files
     try:
         tweets_file = open(data_paths_twitter15_16['twitter15-16 tweets'], mode='r', encoding="utf8")
         labels_file = open(data_paths_twitter15_16['twitter15-16 labels'], mode='r', encoding="utf8")
@@ -87,47 +105,47 @@ def prepare_data_from_txt(fasttext_model):
         tweet = tweet_line[tweet_start:]
 
         # clean the tweet text
-        tweet = clean(tweet,
-                      fix_unicode=True,  # fix various unicode errors
-                      to_ascii=True,  # transliterate to closest ASCII representation
-                      lower=True,  # lowercase text
-                      no_line_breaks=True,  # fully strip line breaks as opposed to only normalizing them
-                      no_urls=True,  # replace all URLs with a special token
-                      no_emails=True,  # replace all email addresses with a special token
-                      no_phone_numbers=True,  # replace all phone numbers with a special token
-                      no_numbers=False,  # replace all numbers with a special token
-                      no_digits=False,  # replace all digits with a special token
-                      no_currency_symbols=True,  # replace all currency symbols with a special token
-                      no_punct=True,  # fully remove punctuation
-                      replace_with_url="<URL>",
-                      replace_with_email="<EMAIL>",
-                      replace_with_phone_number="<PHONE>",
-                      replace_with_number="<NUMBER>",
-                      replace_with_digit="0",
-                      replace_with_currency_symbol="<CUR>",
-                      lang="en")
+        tweet = dt.tweet_cleaner(tweet)
 
         label = label.lower()
 
         if label == 'true':
             label_v = label_true
+            label_name = 'true rumor'
         elif label == 'false':
             label_v = label_false
+            label_name = 'false rumor'
         else:  # label == 'unverified':
             label_v = label_unverified
+            label_name = 'unverified rumor'
 
         # add to the validation
         if i < 72:
             tweets_validation[i, :] = fasttext_model.get_sentence_vector(tweet)
             labels_validation[i, :] = label_v
+            counters_validation['total rumors'] += 1
+            counters_validation[label_name] += 1
+
+        # add to the test
         elif 72 <= i < (72 + 44):
             tweets_test[i - 72, :] = fasttext_model.get_sentence_vector(tweet)
             labels_test[i - 72, :] = label_v
+            counters_test['total rumors'] += 1
+            counters_test[label_name] += 1
+        # add to the training
         else:
             tweets_training[i - 72 - 44, :] = fasttext_model.get_sentence_vector(tweet)
             labels_training[i - 72 - 44, :] = label_v
+            counters_training['total rumors'] += 1
+            counters_training[label_name] += 1
 
         i += 1
+
+    # print the amount of added tweets
+    print('\nFrom Twitter15-16 dataset:')
+    print('For training: ' + str(counters_training))
+    print('For validation: ' + str(counters_validation))
+    print('For test: ' + str(counters_test))
 
     # load the previous data, concatenate with the new and save it
     # validation - tweets
@@ -213,23 +231,30 @@ def prepare_data_from_csv(base_path, csv_path, output_dim, fasttext_model, count
             label = row[1].lower()
 
             if set_name == 'rumors':
-                counters['rumors'] += 1
+                counters['total rumors'] += 1
                 if label == 'true':
                     labels[i, :] = label_true
+                    counters['true rumor'] += 1
                 elif label == 'false':
                     labels[i, :] = label_false
+                    counters['false rumor'] += 1
                 elif label == 'unverified':
                     labels[i, :] = label_unverified
+                    counters['unverified rumor'] += 1
             else:
-                counters['stances'] += 1
+                counters['total stances'] += 1
                 if label == 'support':
                     labels[i, :] = label_support
+                    counters['support'] += 1
                 elif label == 'deny':
                     labels[i, :] = label_deny
+                    counters['deny'] += 1
                 elif label == 'query':
                     labels[i, :] = label_query
+                    counters['query'] += 1
                 elif label == 'comment':
                     labels[i, :] = label_comment
+                    counters['comment'] += 1
 
         np.save(os.path.join(base_path, set_name + '_tweets.npy'), tweets)
         np.save(os.path.join(base_path, set_name + '_labels.npy'), labels)
@@ -252,14 +277,29 @@ def main():
 
     # go through the dataset and use fasttest (for embedding) to create numpy arrays
     counters = {
-        'rumors': 0,
-        'stances': 0,
+        'total rumors': 0,
+        'true rumor': 0,
+        'false rumor': 0,
+        'unverified rumor': 0,
+
+        'total stances': 0,
+        'support': 0,
+        'deny': 0,
+        'query': 0,
+        'comment': 0,
     }
 
     # go through training data folder, validation data folder and test data folder
     for _, preprocessed_data_path in preprocessed_data_paths_RumourEval.items():
-        counters['rumors'] = 0
-        counters['stances'] = 0
+        counters['total rumors'] = 0
+        counters['true rumor'] = 0
+        counters['false rumor'] = 0
+        counters['unverified rumor'] = 0
+        counters['total stances'] = 0
+        counters['support'] = 0
+        counters['deny'] = 0
+        counters['query'] = 0
+        counters['comment'] = 0
 
         rumors_csv_path = os.path.join(preprocessed_data_path, 'rumors.csv')
         stances_csv_path = os.path.join(preprocessed_data_path, 'stances.csv')

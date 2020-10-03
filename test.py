@@ -14,8 +14,8 @@ preprocessed_data_paths = {
     'test_stances_labels path': 'data\\preprocessed data\\test\\stances_labels.npy',
 }
 
-batch_size_test_rumors = 1  # 100
-batch_size_test_stances = 1  # 1066
+batch_size_test_rumors = 100  # 100
+batch_size_test_stances = 1066  # 1066
 
 
 def main():

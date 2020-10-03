@@ -12,7 +12,8 @@ import csv
 import json
 import pathlib
 from cleantext import clean  # reference: https://github.com/jfilter/clean-text
-
+from nltk.corpus import stopwords
+import re
 
 # Raw data folders paths
 raw_data_paths = {
@@ -36,6 +37,39 @@ preprocessed_data_paths = {
 }
 
 
+def tweet_cleaner(tweet):
+    # removal of Stop-words
+    replace_set = stopwords.words('english')
+    tweet_list = tweet.split(' ')
+    no_stopwords = [word for word in tweet_list if word not in replace_set]
+    no_stopwords = ' '.join(no_stopwords)
+
+    # removal of @mention
+    no_mentions = re.sub(r'@[\w_]+', '', no_stopwords)
+
+    clean_tweet = clean(no_mentions,
+                        fix_unicode=True,  # fix various unicode errors
+                        to_ascii=True,  # transliterate to closest ASCII representation
+                        lower=True,  # lowercase text
+                        no_line_breaks=True,  # fully strip line breaks as opposed to only normalizing them
+                        no_urls=True,  # replace all URLs with a special token
+                        no_emails=True,  # replace all email addresses with a special token
+                        no_phone_numbers=True,  # replace all phone numbers with a special token
+                        no_numbers=False,  # replace all numbers with a special token
+                        no_digits=False,  # replace all digits with a special token
+                        no_currency_symbols=True,  # replace all currency symbols with a special token
+                        no_punct=True,  # fully remove punctuation
+                        replace_with_url="<URL>",
+                        replace_with_email="<EMAIL>",
+                        replace_with_phone_number="<PHONE>",
+                        replace_with_number="<NUMBER>",
+                        replace_with_digit="0",
+                        replace_with_currency_symbol="<CUR>",
+                        lang="en"
+                        )
+    return clean_tweet
+
+
 def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_labels, stances_labels, counters_dict):
     """
     Writes to the CSV files the "clean" tweet content and it's label
@@ -54,25 +88,11 @@ def set_tweet_label(tweet_path, writer_rumors, writer_stances, tweet_id, rumors_
         tweet_dict = json.load(tweet_file)
         if 'text' in tweet_dict:
             tweet_content = tweet_dict['text']
-            tweet_content = clean(tweet_content,
-                                  fix_unicode=True,  # fix various unicode errors
-                                  to_ascii=True,  # transliterate to closest ASCII representation
-                                  lower=True,  # lowercase text
-                                  no_line_breaks=True,  # fully strip line breaks as opposed to only normalizing them
-                                  no_urls=True,  # replace all URLs with a special token
-                                  no_emails=True,  # replace all email addresses with a special token
-                                  no_phone_numbers=True,  # replace all phone numbers with a special token
-                                  no_numbers=False,  # replace all numbers with a special token
-                                  no_digits=False,  # replace all digits with a special token
-                                  no_currency_symbols=True,  # replace all currency symbols with a special token
-                                  no_punct=True,  # fully remove punctuation
-                                  replace_with_url="<URL>",
-                                  replace_with_email="<EMAIL>",
-                                  replace_with_phone_number="<PHONE>",
-                                  replace_with_number="<NUMBER>",
-                                  replace_with_digit="0",
-                                  replace_with_currency_symbol="<CUR>",
-                                  lang="en")
+            tweet_content = tweet_cleaner(tweet_content)
+            tweet_list = tweet_content.split(' ')
+            if len(tweet_list) < 2:
+                return
+
             if tweet_id in rumors_labels:
                 tweet_label = rumors_labels[tweet_id]
                 row = [tweet_content, tweet_label]
