@@ -22,8 +22,8 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   'data\\preprocessed data\\validation\\stances_labels.npy',
 }
 
-batch_size_training_rumors = 8
-batch_size_training_stances = 8
+batch_size_training_rumors = 58
+batch_size_training_stances = 58
 
 batch_size_validation_rumors = 1  # 100
 batch_size_validation_stances = 1  # 1049
@@ -50,8 +50,8 @@ def main():
     train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),
                                        torch.from_numpy(np.load(preprocessed_data_paths['training_stances_labels path'])))
 
-    val_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_tweets path']))[:500, :],
-                                     torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_labels path']))[:500, :])
+    val_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_tweets path'])),
+                                     torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_labels path'])))
 
     # create 'DataLoader's  for stances
     train_loader_stances = DataLoader(train_data_stances, shuffle=True, batch_size=batch_size_training_stances)
