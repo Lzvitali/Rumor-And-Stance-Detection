@@ -3,13 +3,13 @@ import torch.nn as nn
 import defines as df
 
 
-class GRUCELLTaskSpecific(torch.nn.Module):
+class GRUCellTaskSpecific(torch.nn.Module):
     """
     This class is our implementation of GRUCELL for the task specific layers,
     which includes the sharedGRU result in it`s computations.
     """
     def __init__(self, input_length=250, hidden_length=100, hidden_length_shared=100):
-        super(GRUCELLTaskSpecific, self).__init__()
+        super(GRUCellTaskSpecific, self).__init__()
         self.input_length = input_length
         self.hidden_length = hidden_length
         self.hidden_length_shared = hidden_length_shared
@@ -83,13 +83,16 @@ class GRUMultiTask(torch.nn.Module):
         self.hidden_length_shared = hidden_length_shared
         self.is_dropout = is_dropout
 
-        if loss_func != 'CrossEntropyLoss' and loss_func != 'BCELoss' and loss_func != 'L1Loss' and loss_func != 'MSELoss':
+        if loss_func != 'CrossEntropyLoss' and loss_func != 'BCELoss' and loss_func != 'L1Loss' \
+                and loss_func != 'MSELoss':
             self.loss_func = 'CrossEntropyLoss'
         else:
             self.loss_func = loss_func
 
-        self.gru_cell_rumors = GRUCELLTaskSpecific(self.input_length, self.hidden_length_rumors, self.hidden_length_shared)
-        self.gru_cell_stances = GRUCELLTaskSpecific(self.input_length, self.hidden_length_stances, self.hidden_length_shared)
+        self.gru_cell_rumors = GRUCellTaskSpecific(self.input_length, self.hidden_length_rumors,
+                                                   self.hidden_length_shared)
+        self.gru_cell_stances = GRUCellTaskSpecific(self.input_length, self.hidden_length_stances,
+                                                    self.hidden_length_shared)
         self.gru_cell_shared = nn.GRUCell(self.input_length, self.hidden_length_shared, bias=True)
 
         # for final classification

@@ -83,14 +83,14 @@ def prepare_data_from_txt(fasttext_model):
         if label != 'non-rumor':
             cnt_relevant_tweets += 1
 
-    tweets_validation = np.zeros((72, df.input_length), dtype=np.float32)
-    labels_validation = np.zeros((72, df.output_dim_rumors), dtype=np.int64)
+    tweets_validation = np.zeros((172, df.input_length), dtype=np.float32)
+    labels_validation = np.zeros((172, df.output_dim_rumors), dtype=np.int64)
 
-    tweets_test = np.zeros((44, df.input_length), dtype=np.float32)
-    labels_test = np.zeros((44, df.output_dim_rumors), dtype=np.int64)
+    tweets_test = np.zeros((144, df.input_length), dtype=np.float32)
+    labels_test = np.zeros((144, df.output_dim_rumors), dtype=np.int64)
 
-    tweets_training = np.zeros((cnt_relevant_tweets - 72 - 44, df.input_length), dtype=np.float32)
-    labels_training = np.zeros((cnt_relevant_tweets - 72 - 44, df.output_dim_rumors), dtype=np.int64)
+    tweets_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.input_length), dtype=np.float32)
+    labels_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.output_dim_rumors), dtype=np.int64)
 
     i = 0
     for tweet_line, label_line in zip(tweets_file_data, labels_file_data):
@@ -120,22 +120,22 @@ def prepare_data_from_txt(fasttext_model):
             label_name = 'unverified rumor'
 
         # add to the validation
-        if i < 72:
+        if i < 172:
             tweets_validation[i, :] = fasttext_model.get_sentence_vector(tweet)
             labels_validation[i, :] = label_v
             counters_validation['total rumors'] += 1
             counters_validation[label_name] += 1
 
         # add to the test
-        elif 72 <= i < (72 + 44):
-            tweets_test[i - 72, :] = fasttext_model.get_sentence_vector(tweet)
-            labels_test[i - 72, :] = label_v
+        elif 172 <= i < (172 + 144):
+            tweets_test[i - 172, :] = fasttext_model.get_sentence_vector(tweet)
+            labels_test[i - 172, :] = label_v
             counters_test['total rumors'] += 1
             counters_test[label_name] += 1
         # add to the training
         else:
-            tweets_training[i - 72 - 44, :] = fasttext_model.get_sentence_vector(tweet)
-            labels_training[i - 72 - 44, :] = label_v
+            tweets_training[i - 172 - 144, :] = fasttext_model.get_sentence_vector(tweet)
+            labels_training[i - 172 - 144, :] = label_v
             counters_training['total rumors'] += 1
             counters_training[label_name] += 1
 
@@ -162,7 +162,7 @@ def prepare_data_from_txt(fasttext_model):
     np.save(os.path.join(preprocessed_data_paths_RumourEval['validation path'], 'rumors_labels.npy'),
             np.concatenate([previous, labels_validation]))  # save the new
 
-    print('\n72 rumor tweets added to: Validation set')
+    print('\n172 rumor tweets added to: Validation set')
 
     # test - tweets
     previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_tweets.npy')) \
@@ -178,7 +178,7 @@ def prepare_data_from_txt(fasttext_model):
     np.save(os.path.join(preprocessed_data_paths_RumourEval['test path'], 'rumors_labels.npy'),
             np.concatenate([previous, labels_test]))  # save the new
 
-    print('44 rumor tweets added to: Test set')
+    print('144 rumor tweets added to: Test set')
 
     # training - tweets
     previous = np.load(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_tweets.npy')) \
@@ -194,7 +194,7 @@ def prepare_data_from_txt(fasttext_model):
     np.save(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy'),
             np.concatenate([previous, labels_training]))  # save the new
 
-    print(str(cnt_relevant_tweets - 72 - 44) + ' rumor tweets added to: Training set')
+    print(str(cnt_relevant_tweets - 172 - 144) + ' rumor tweets added to: Training set')
 
     tweets_file.close()
     labels_file.close()

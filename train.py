@@ -1,4 +1,5 @@
 from model.models import GRUMultiTask
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,22 +12,22 @@ from sklearn.metrics import f1_score
 
 # Preprocessed data paths
 preprocessed_data_paths = {
-    'training_rumors_tweets path':      'data\\preprocessed data\\training\\rumors_tweets.npy',
-    'training_rumors_labels path':      'data\\preprocessed data\\training\\rumors_labels.npy',
-    'training_stances_tweets path':     'data\\preprocessed data\\training\\stances_tweets.npy',
-    'training_stances_labels path':     'data\\preprocessed data\\training\\stances_labels.npy',
+    'training_rumors_tweets path':      os.path.join('data', 'preprocessed data', 'training', 'rumors_tweets.npy'),
+    'training_rumors_labels path':      os.path.join('data', 'preprocessed data', 'training', 'rumors_labels.npy'),
+    'training_stances_tweets path':     os.path.join('data', 'preprocessed data', 'training', 'stances_tweets.npy'),
+    'training_stances_labels path':     os.path.join('data', 'preprocessed data', 'training', 'stances_labels.npy'),
 
-    'validation_rumors_tweets path':    'data\\preprocessed data\\validation\\rumors_tweets.npy',
-    'validation_rumors_labels path':    'data\\preprocessed data\\validation\\rumors_labels.npy',
-    'validation_stances_tweets path':   'data\\preprocessed data\\validation\\stances_tweets.npy',
-    'validation_stances_labels path':   'data\\preprocessed data\\validation\\stances_labels.npy',
+    'validation_rumors_tweets path':    os.path.join('data', 'preprocessed data', 'validation', 'rumors_tweets.npy'),
+    'validation_rumors_labels path':    os.path.join('data', 'preprocessed data', 'validation', 'rumors_labels.npy'),
+    'validation_stances_tweets path':   os.path.join('data', 'preprocessed data', 'validation', 'stances_tweets.npy'),
+    'validation_stances_labels path':   os.path.join('data', 'preprocessed data', 'validation', 'stances_labels.npy'),
 }
 
 batch_size_training_rumors = 58
 batch_size_training_stances = 58
 
-batch_size_validation_rumors = 1  # 100
-batch_size_validation_stances = 1  # 1049
+batch_size_validation_rumors = 20  # 200
+batch_size_validation_stances = 96  # 961
 
 loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
 learning_rate = 0.0005                  # learning rate
@@ -43,8 +44,8 @@ def main():
     val_data_rumors = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_tweets path'])),
                                     torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_labels path'])))
 
-    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors)
-    val_loader_rumors = DataLoader(val_data_rumors, shuffle=True, batch_size=batch_size_validation_rumors)
+    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors, drop_last=True)
+    val_loader_rumors = DataLoader(val_data_rumors, shuffle=False, batch_size=batch_size_validation_rumors, drop_last=True)
 
     # create 'TensorDataset's  for stances
     train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),
@@ -54,8 +55,8 @@ def main():
                                      torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_labels path'])))
 
     # create 'DataLoader's  for stances
-    train_loader_stances = DataLoader(train_data_stances, shuffle=True, batch_size=batch_size_training_stances)
-    val_loader_stances = DataLoader(val_data_stances, shuffle=True, batch_size=batch_size_validation_stances)
+    train_loader_stances = DataLoader(train_data_stances, shuffle=True, batch_size=batch_size_training_stances, drop_last=True)
+    val_loader_stances = DataLoader(val_data_stances, shuffle=False, batch_size=batch_size_validation_stances, drop_last=True)
 
     # torch.cuda.is_available() checks and returns a Boolean True if a GPU is available, else it'll return False
     is_cuda = torch.cuda.is_available()
@@ -94,13 +95,11 @@ def main():
     model.train()  # set the model to train mode
 
     validation_min_loss = {
-        'rumor':    np.Inf,
-        'stance':   np.Inf
+        'min loss': np.Inf
     }
 
     last_save = {
-        'rumor': 0,
-        'stance': 0
+        'last save': 0,
     }
 
     # check time before training
@@ -136,14 +135,14 @@ def main():
             sum_loss_training_stances += loss_stances.item()
 
             # make validation and save the model if it is the best until now
-            if i > 5:
-                cnt_correct = validation_or_testing(model, 'rumor', val_loader_rumors, criterion, device, i+1,
-                                                    validation_min_loss, loss_rumors, counter_batches, last_save)
-                cnt_correct_validation_rumors += cnt_correct
-
-                cnt_correct = validation_or_testing(model, 'stance', val_loader_stances, criterion, device, i+1,
-                                                    validation_min_loss, loss_stances, counter_batches, last_save)
-                cnt_correct_validation_stances += cnt_correct
+            if i > 3:  # start validation only from epoch 5
+                if 1 == counter_batches:
+                    print('Validation of model: ')
+                cnt_correct_r, cnt_correct_s = validation_or_testing(model, val_loader_rumors, val_loader_stances,
+                                                                     criterion, device, i+1, validation_min_loss,
+                                                                     loss_rumors, loss_stances, counter_batches, last_save)
+                cnt_correct_validation_rumors += cnt_correct_r
+                cnt_correct_validation_stances += cnt_correct_s
 
         # print accuracy and loss of the training
         training_loss_rumors = sum_loss_training_rumors / counter_batches
@@ -157,7 +156,7 @@ def main():
         print("Training accuracy stances: {:.3f}%".format(training_acc_stances * 100))
 
         # print accuracy of the validation
-        if i > 5:
+        if i > 3:
             print('-----------------------------------------')
 
             validation_acc_rumors = cnt_correct_validation_rumors / (len(val_loader_rumors.dataset) * counter_batches)
@@ -168,8 +167,7 @@ def main():
 
             print('-----------------------------------------')
 
-            print('Last save for rumors: epoch ' + str(last_save['rumor']))
-            print('Last save for stances: epoch ' + str(last_save['stance']))
+            print('Last save for model: epoch ' + str(last_save['last save']))
 
         # check time so far
         finish_time = gmtime()
@@ -196,7 +194,7 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
                             - number of correct predictions
     """
     # set initial 'h' vectors of model's GRUs
-    h_prev_task_rumors, h_prev_task_stances, h_prev_shared = tuple([e.data for e in h])
+    h_prev_task_rumors, h_prev_task_stances, h_prev_shared = h
 
     inputs_batch, labels_batch = inputs_batch.to(device), labels_batch.to(device)
 
@@ -231,107 +229,133 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
     return loss, num_correct
 
 
-def validation_or_testing(model, task_name, data_loader, criterion, device, epoch_no=None, min_loss_dict=None,
-                          loss_train=None, batch_no=None, last_save_dict=None, operation='validation'):
+def validation_or_testing(model, data_loader_rumors, data_loader_stances, criterion, device, epoch_no=None,
+                          min_loss_dict=None, loss_train_r=None, loss_train_s=None, batch_no=None, last_save_dict=None,
+                          operation='validation'):
     """
     Makes validation on specific task. Saves the dict of the model if it gave the best results so far.
     Returns the number of correct predictions
     :param model:                       the multi-task model
-    :param task_name:                   'rumor' or 'stances'
-    :param data_loader:                  DataLoader of the specific task
+    :param data_loader_rumors:          DataLoader of rumor detection task
+    :param data_loader_stances:         DataLoader of stance detection task
     :param criterion:                   the loss function
     :param device:                      'cpu' or 'gpu'
     :param epoch_no:                    epoch no
     :param min_loss_dict:               dictionary that contains the min losses of each task
-    :param loss_train:                  the loss of the training at this point of time
+    :param loss_train_r :               the loss of the training at this point of time for rumor detection task
+    :param loss_train_s :               the loss of the training at this point of time for stance detection task
     :param batch_no:                    batch no
     :param last_save_dict               dictionary containing the last epoch where a save happened for each task
     :param operation                    validation' or 'testing'
     :return:                            number of correct predictions
     """
-    if 'validation' == operation:
-        print('Validation for ' + task_name + ' detection model: ')
-
-    all_losses = []
+    all_losses_r = []  # for rumor detection task
+    all_losses_s = []  # for stance detection task
 
     model.eval()  # set the model to evaluation mode
 
-    sum_correct = 0
+    sum_correct_r = 0  # for rumor detection task
+    sum_correct_s = 0  # for stance detection task
 
-    total_out_v = []
-    total_lab = []
+    total_out_r = []  # for rumor detection task
+    total_lab_r = []  # for rumor detection task
+    total_out_s = []  # for stance detection task
+    total_lab_s = []  # for stance detection task
+
+    # get initial 'h' vectors of model's GRUs
+    h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = model.init_hidden()
 
     # iterate through the batch
-    for inp, lab in data_loader:
-        inp, lab = inp.to(device), lab.to(device)
+    for (inputs_rumors, labels_rumors), (inputs_stances, labels_stances) \
+            in zip(data_loader_rumors, data_loader_stances):
+        inputs_rumors, labels_rumors = inputs_rumors.to(device), labels_rumors.to(device)
+        inputs_stances, labels_stances = inputs_stances.to(device), labels_stances.to(device)
 
-        # get initial 'h' vectors of model's GRUs
-        h_val = model.init_hidden()
-        h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = tuple([e.data for e in h_val])
-
-        # Forward pass to get outputs of the model
-        if 'rumor' == task_name:
-            out_v, h_prev_shared_val, h_prev_task_rumors_val = model(inp, h_prev_shared_val, df.task_rumors_no,
-                                                                     h_prev_rumors=h_prev_task_rumors_val)
-        else:  # 'stance' == task_name
-            out_v, h_prev_shared_val, h_prev_task_stances_val = model(inp, h_prev_shared_val, df.task_stances_no,
-                                                                      h_prev_stances=h_prev_task_stances_val)
+        # Forward pass for rumor task, to get outputs of the model
+        out_r, h_prev_shared_val, h_prev_task_rumors_val = model(inputs_rumors, h_prev_shared_val, df.task_rumors_no,
+                                                                 h_prev_rumors=h_prev_task_rumors_val)
+        # Forward pass for stance task, to get outputs of the model
+        out_s, h_prev_shared_val, h_prev_task_stances_val = model(inputs_stances, h_prev_shared_val, df.task_stances_no,
+                                                                  h_prev_stances=h_prev_task_stances_val)
 
         # we need this for calculation of F1 scores. we do it only for testing
         if 'testing' == operation:
-            total_out_v += (torch.max(out_v, 1)[1]).to('cpu').tolist()
-            total_lab += (torch.max(lab, 1)[1]).to('cpu').tolist()
+            total_out_r += (torch.max(out_r, 1)[1]).to('cpu').tolist()
+            total_lab_r += (torch.max(labels_rumors, 1)[1]).to('cpu').tolist()
+            total_out_s += (torch.max(out_s, 1)[1]).to('cpu').tolist()
+            total_lab_s += (torch.max(labels_stances, 1)[1]).to('cpu').tolist()
 
         # count the number of correct outputs
-        sum_correct += count_correct(out_v, lab, task_name, device)
+        sum_correct_r += count_correct(out_r, labels_rumors, 'rumor', device)
+        sum_correct_s += count_correct(out_s, labels_stances, 'stance', device)
 
         # Calculate Loss
         if loss_function == 'BCELoss' or loss_function == 'MSELoss':
-            loss = criterion(out_v, lab.float())
+            loss_r = criterion(out_r, labels_rumors.float())
+            loss_s = criterion(out_s, labels_stances.float())
         elif loss_function == 'L1Loss':
-            loss = criterion(out_v, lab)
+            loss_r = criterion(out_r, labels_rumors)
+            loss_s = criterion(out_s, labels_stances)
         else:  # the default
-            loss = criterion(out_v, (torch.max(lab, 1)[1]).to(device))
-        all_losses.append(loss.item())
+            loss_r = criterion(out_r, (torch.max(labels_rumors, 1)[1]).to(device))
+            loss_s = criterion(out_s, (torch.max(labels_stances, 1)[1]).to(device))
+        all_losses_r.append(loss_r.item())
+        all_losses_s.append(loss_s.item())
 
     # calculation of F1 scores
     if 'testing' == operation:
-        # print F1 micro and macro scores
-        score_f1_micro = f1_score(total_lab, total_out_v, average='micro')
-        score_f1_macro = f1_score(total_lab, total_out_v, average='macro')
+        # print F1 micro and macro scores for rumor detection
+        score_f1_micro = f1_score(total_lab_r, total_out_r, average='micro')
+        score_f1_macro = f1_score(total_lab_r, total_out_r, average='macro')
+        print("For rumor detection:")
+        print("F1 micro score: {:.3f}".format(score_f1_micro))
+        print("F1 macro score: {:.3f}\n".format(score_f1_macro))
+
+        # print F1 micro and macro scores for stance detection
+        score_f1_micro = f1_score(total_lab_s, total_out_s, average='micro')
+        score_f1_macro = f1_score(total_lab_s, total_out_s, average='macro')
+        print("For stance detection:")
         print("F1 micro score: {:.3f}".format(score_f1_micro))
         print("F1 macro score: {:.3f}".format(score_f1_macro))
 
     if 'validation' == operation:
-        print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict)
+        print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
+                       last_save_dict)
 
-    return sum_correct
+    return sum_correct_r, sum_correct_s
 
 
-def print_and_save(model, task_name, epoch_no, batch_no, loss_train, all_losses, min_loss_dict, last_save_dict):
+def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
+                   last_save_dict):
     """
     Prints the details of the validation and saves the dict of the model if it gave the best results so far.
     :param model:                       the multi-task model
-    :param task_name:                   'rumor' or 'stances'
     :param epoch_no:                    epoch no
     :param batch_no:                    batch no
-    :param loss_train:                  the loss of the training
-    :param all_losses:                  list with all the losses of the validation
+    :param loss_train_r:                the loss of the training for rumor detection task
+    :param loss_train_s:                the loss of the training for stance detection task
+    :param all_losses_r:                list with all the losses of the validation for rumor detection task
+    :param all_losses_s:                list with all the losses of the validation for stance detection task
     :param min_loss_dict:               dictionary that contains the min losses of each task
     :param last_save_dict               dictionary containing the the last epoch where a save happened for each task
     :return:                            void
     """
     model.train()  # set the model to train mode
+
+    val_loss_avg = (np.mean(all_losses_r) + np.mean(all_losses_s)) / 2
     print("Epoch: {}/{}...".format(epoch_no, epochs),
-          "batch: {}...".format(batch_no),
-          "Loss train: {:.6f}...".format(loss_train.item()),
-          "Val Loss: {:.6f}".format(np.mean(all_losses)))
-    if np.mean(all_losses) <= min_loss_dict[task_name]:
-        torch.save(model.state_dict(), 'model/state_dict_' + task_name + 's.pt')
-        print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict[task_name],
-                                                                                          np.mean(all_losses)))
-        min_loss_dict[task_name] = np.mean(all_losses)
-        last_save_dict[task_name] = epoch_no
+          "batch: {}\n".format(batch_no),
+          "Loss train for rumors: {:.6f}...".format(loss_train_r.item()),
+          "Loss train for stances: {:.6f}\n".format(loss_train_s.item()),
+          "Val Loss for rumors: {:.6f}".format(np.mean(all_losses_r)),
+          "Val Loss for stances: {:.6f}\n".format(np.mean(all_losses_s)),
+          "Val Loss avg: {:.6f}".format(val_loss_avg))
+    if val_loss_avg <= min_loss_dict['min loss']:
+        torch.save(model.state_dict(), 'model/model_state_dict.pt')
+        print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict['min loss'],
+                                                                                          val_loss_avg))
+        min_loss_dict['min loss'] = val_loss_avg
+        last_save_dict['last save'] = epoch_no
     else:
         print()
 
