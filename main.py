@@ -13,6 +13,8 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 
+fasttext.FastText.eprint = print
+
 skipgram_path = 'embedding\\model_skipgram.bin'
 
 
@@ -77,7 +79,7 @@ def examine_example(fasttext_model, rumors, replies):
     for inputs_rumors, inputs_replies in zip(loader_rumors, loader_replies):
         inputs_rumors, inputs_replies = inputs_rumors[0].to(device), inputs_replies[0].to(device)
 
-        for i in range(2):
+        for i in range(1):
             # Forward pass for rumor task, to get outputs of the model
             out_r, h_prev_shared_val, h_prev_task_rumors_val = model_multi_task(inputs_rumors,
                                                                                 h_prev_shared_val,
