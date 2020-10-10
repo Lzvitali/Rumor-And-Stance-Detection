@@ -23,14 +23,14 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   os.path.join('data', 'preprocessed data', 'validation', 'stances_labels.npy'),
 }
 
-batch_size_training_rumors = 58
-batch_size_training_stances = 58
+batch_size_training_rumors = 28
+batch_size_training_stances = 50
 
 batch_size_validation_rumors = 20  # 200
 batch_size_validation_stances = 96  # 961
 
-loss_function = 'CrossEntropyLoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0005                  # learning rate
+loss_function = 'BCELoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
+learning_rate = 0.0008         # learning rate
 epochs = 100
 
 is_dropout = False  # can be True or False
@@ -48,7 +48,7 @@ def main():
     val_loader_rumors = DataLoader(val_data_rumors, shuffle=False, batch_size=batch_size_validation_rumors, drop_last=True)
 
     # create 'TensorDataset's  for stances
-    train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),
+    train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),  # [:3050, :]
                                        torch.from_numpy(np.load(preprocessed_data_paths['training_stances_labels path'])))
 
     val_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_tweets path'])),
@@ -63,9 +63,9 @@ def main():
 
     # if we have a GPU available, we'll set our device to GPU. We'll use this device variable later in our code.
     if is_cuda:
-        device = torch.device("cuda")
+        device = torch.device('cuda')
     else:
-        device = torch.device("cpu")
+        device = torch.device('cpu')
 
     # create the model
     model = GRUMultiTask(input_length=df.input_length,
@@ -104,11 +104,11 @@ def main():
 
     # check time before training
     start_time = gmtime()
-    start_time = strftime("%H:%M:%S", start_time)
+    start_time = strftime('%H:%M:%S', start_time)
 
     for i in range(epochs):
         h = model.init_hidden()
-        print('\nEpoch: ' + str(i + 1))
+        print('\nEpoch: {}'.format(i + 1))
 
         counter_batches = 0
         cnt_correct_training_rumors = 0
@@ -146,24 +146,24 @@ def main():
 
         # print accuracy and loss of the training
         training_loss_rumors = sum_loss_training_rumors / counter_batches
-        print("Training loss rumors: {:.3f}".format(training_loss_rumors))
+        print('Training loss rumors: {:.3f}'.format(training_loss_rumors))
         training_acc_rumors = cnt_correct_training_rumors / (batch_size_training_rumors * counter_batches)
-        print("Training accuracy rumors: {:.3f}%".format(training_acc_rumors * 100))
+        print('Training accuracy rumors: {:.3f}%'.format(training_acc_rumors * 100))
 
         training_loss_stances = sum_loss_training_stances / counter_batches
-        print("Training loss stances: {:.3f}".format(training_loss_stances))
+        print('Training loss stances: {:.3f}'.format(training_loss_stances))
         training_acc_stances = cnt_correct_training_stances / (batch_size_training_stances * counter_batches)
-        print("Training accuracy stances: {:.3f}%".format(training_acc_stances * 100))
+        print('Training accuracy stances: {:.3f}%'.format(training_acc_stances * 100))
 
         # print accuracy of the validation
         if i > 3:
             print('-----------------------------------------')
 
             validation_acc_rumors = cnt_correct_validation_rumors / (len(val_loader_rumors.dataset) * counter_batches)
-            print("Validation accuracy rumors: {:.3f}%".format(validation_acc_rumors * 100))
+            print('Validation accuracy rumors: {:.3f}%'.format(validation_acc_rumors * 100))
 
             validation_acc_stances = cnt_correct_validation_stances / (len(val_loader_stances.dataset) * counter_batches)
-            print("Validation accuracy stances: {:.3f}%".format(validation_acc_stances * 100))
+            print('Validation accuracy stances: {:.3f}%'.format(validation_acc_stances * 100))
 
             print('-----------------------------------------')
 
@@ -171,12 +171,13 @@ def main():
 
         # check time so far
         finish_time = gmtime()
-        finish_time = strftime("%H:%M:%S", finish_time)
+        finish_time = strftime('%H:%M:%S', finish_time)
         formats = "%H:%M:%S"
         time_so_far = datetime.strptime(finish_time, formats) - datetime.strptime(start_time, formats)
         print('-----------------------------------------')
-        print("Total runtime: ", time_so_far)
+        print('Total runtime: ', time_so_far)
         print('-----------------------------------------')
+        torch.save(model.state_dict(), 'model/training_state_dict.pt')
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
@@ -280,10 +281,10 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
 
         # we need this for calculation of F1 scores. we do it only for testing
         if 'testing' == operation:
-            total_out_r += (torch.max(out_r, 1)[1]).to('cpu').tolist()
-            total_lab_r += (torch.max(labels_rumors, 1)[1]).to('cpu').tolist()
-            total_out_s += (torch.max(out_s, 1)[1]).to('cpu').tolist()
-            total_lab_s += (torch.max(labels_stances, 1)[1]).to('cpu').tolist()
+            total_out_r += [element.item() for element in (torch.max(out_r, 1)[1])]
+            total_lab_r += [element.item() for element in (torch.max(labels_rumors, 1)[1])]
+            total_out_s += [element.item() for element in (torch.max(out_s, 1)[1])]
+            total_lab_s += [element.item() for element in (torch.max(labels_stances, 1)[1])]
 
         # count the number of correct outputs
         sum_correct_r += count_correct(out_r, labels_rumors, 'rumor', device)
@@ -307,16 +308,16 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
         # print F1 micro and macro scores for rumor detection
         score_f1_micro = f1_score(total_lab_r, total_out_r, average='micro')
         score_f1_macro = f1_score(total_lab_r, total_out_r, average='macro')
-        print("For rumor detection:")
-        print("F1 micro score: {:.3f}".format(score_f1_micro))
-        print("F1 macro score: {:.3f}\n".format(score_f1_macro))
+        print('For rumor detection:')
+        print('F1 micro score: {:.3f}'.format(score_f1_micro))
+        print('F1 macro score: {:.3f}\n'.format(score_f1_macro))
 
         # print F1 micro and macro scores for stance detection
         score_f1_micro = f1_score(total_lab_s, total_out_s, average='micro')
         score_f1_macro = f1_score(total_lab_s, total_out_s, average='macro')
-        print("For stance detection:")
-        print("F1 micro score: {:.3f}".format(score_f1_micro))
-        print("F1 macro score: {:.3f}".format(score_f1_macro))
+        print('For stance detection:')
+        print('F1 micro score: {:.3f}'.format(score_f1_micro))
+        print('F1 macro score: {:.3f}'.format(score_f1_macro))
 
     if 'validation' == operation:
         print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
@@ -343,13 +344,13 @@ def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_lo
     model.train()  # set the model to train mode
 
     val_loss_avg = (np.mean(all_losses_r) + np.mean(all_losses_s)) / 2
-    print("Epoch: {}/{}...".format(epoch_no, epochs),
-          "batch: {}\n".format(batch_no),
-          "Loss train for rumors: {:.6f}...".format(loss_train_r.item()),
-          "Loss train for stances: {:.6f}\n".format(loss_train_s.item()),
-          "Val Loss for rumors: {:.6f}".format(np.mean(all_losses_r)),
-          "Val Loss for stances: {:.6f}\n".format(np.mean(all_losses_s)),
-          "Val Loss avg: {:.6f}".format(val_loss_avg))
+    print('Epoch: {}/{}...'.format(epoch_no, epochs),
+          'batch: {}\n'.format(batch_no),
+          'Loss train for rumors: {:.6f}...'.format(loss_train_r.item()),
+          'Loss train for stances: {:.6f}\n'.format(loss_train_s.item()),
+          'Val Loss for rumors: {:.6f}'.format(np.mean(all_losses_r)),
+          'Val Loss for stances: {:.6f}\n'.format(np.mean(all_losses_s)),
+          'Val Loss avg: {:.6f}'.format(val_loss_avg))
     if val_loss_avg <= min_loss_dict['min loss']:
         torch.save(model.state_dict(), 'model/model_state_dict.pt')
         print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict['min loss'],

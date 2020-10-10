@@ -68,7 +68,7 @@ def prepare_data_from_txt(fasttext_model):
         tweets_file = open(data_paths_twitter15_16['twitter15-16 tweets'], mode='r', encoding="utf8")
         labels_file = open(data_paths_twitter15_16['twitter15-16 labels'], mode='r', encoding="utf8")
     except IOError:
-        print("error")
+        print('error')
         return
 
     tweets_file_data = tweets_file.readlines()
@@ -143,9 +143,9 @@ def prepare_data_from_txt(fasttext_model):
 
     # print the amount of added tweets
     print('\nFrom Twitter15-16 dataset:')
-    print('For training: ' + str(counters_training))
-    print('For validation: ' + str(counters_validation))
-    print('For test: ' + str(counters_test))
+    print('For training: {}'.format(counters_training))
+    print('For validation: {}'.format(counters_validation))
+    print('For test: {}'.format(counters_test))
 
     # load the previous data, concatenate with the new and save it
     # validation - tweets
@@ -194,7 +194,7 @@ def prepare_data_from_txt(fasttext_model):
     np.save(os.path.join(preprocessed_data_paths_RumourEval['training path'], 'rumors_labels.npy'),
             np.concatenate([previous, labels_training]))  # save the new
 
-    print(str(cnt_relevant_tweets - 172 - 144) + ' rumor tweets added to: Training set')
+    print('{} rumor tweets added to: Training set'.format((cnt_relevant_tweets - 172 - 144)))
 
     tweets_file.close()
     labels_file.close()
@@ -314,7 +314,7 @@ def main():
             set_name = 'validation'
         else:
             set_name = 'test'
-        print(set_name + ': ' + str(counters))
+        print('{}: {}'.format(set_name, counters))
 
     # End: From: RumourEval 2019 Dataset ------------------------------------------------------------------------------
 

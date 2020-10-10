@@ -122,7 +122,7 @@ def division_by_tasks():
         try:
             labels_file = open(raw_data_labels_path)
         except IOError:
-            print("error")
+            print('error')
             break
 
         # get JSON object as a dictionary
