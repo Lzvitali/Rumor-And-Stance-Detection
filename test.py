@@ -7,6 +7,12 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import defines as df
 
+try:
+    import cPickle as pickle
+except ImportError:  # Python 3.x
+    import pickle
+
+
 # Preprocessed data paths
 preprocessed_data_paths = {
     'test_rumors_tweets path':      os.path.join('data', 'preprocessed data', 'test', 'rumors_tweets.npy'),
@@ -55,10 +61,20 @@ def main():
     # Loading the model
     model_multi_task.load_state_dict(torch.load('model/model_state_dict.pt'))
 
+    # Load hidden states
+    try:
+        with open(os.path.join('model', 'h_prevs.pickle'), 'rb') as fp:
+            h_training = pickle.load(fp)
+            h_training = (torch.from_numpy(h_training['h_1']).to(device),
+                          torch.from_numpy(h_training['h_2']).to(device),
+                          torch.from_numpy(h_training['h_3']).to(device))
+    except EnvironmentError:
+        h_training = model_multi_task.init_hidden()
+
     # Run the model
     cnt_correct_test_rumors, cnt_correct_test_stances = tr.validation_or_testing(model_multi_task, test_loader_rumors,
                                                                                  test_loader_stances, criterion, device,
-                                                                                 operation='testing')
+                                                                                 h_training, operation='testing')
     print('-----------------------------------------\n')
     validation_acc_rumors = cnt_correct_test_rumors / ((len(test_loader_rumors.dataset) / batch_size_test_rumors)
                                                        * batch_size_test_rumors)

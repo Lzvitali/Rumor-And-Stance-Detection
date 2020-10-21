@@ -9,6 +9,11 @@ from time import gmtime, strftime
 from datetime import datetime
 from sklearn.metrics import f1_score
 
+try:
+    import cPickle as pickle
+except ImportError:  # Python 3.x
+    import pickle
+
 
 # Preprocessed data paths
 preprocessed_data_paths = {
@@ -23,15 +28,15 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   os.path.join('data', 'preprocessed data', 'validation', 'stances_labels.npy'),
 }
 
-batch_size_training_rumors = 28
-batch_size_training_stances = 50
+batch_size_training_rumors = 200
+batch_size_training_stances = 200
 
 batch_size_validation_rumors = 20  # 200
 batch_size_validation_stances = 96  # 961
 
 loss_function = 'BCELoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0008         # learning rate
-epochs = 100
+learning_rate = 0.0005         # learning rate
+epochs = 150
 
 is_dropout = False  # can be True or False
 drop_prob = 0.0
@@ -106,8 +111,10 @@ def main():
     start_time = gmtime()
     start_time = strftime('%H:%M:%S', start_time)
 
+    h = model.init_hidden()
+    h_training = model.init_hidden()
+
     for i in range(epochs):
-        h = model.init_hidden()
         print('\nEpoch: {}'.format(i + 1))
 
         counter_batches = 0
@@ -124,23 +131,28 @@ def main():
             counter_batches += 1
 
             # make training
-            loss_rumors, cnt_correct = training_batch_iter(model, 'rumor', criterion, optimizer, device,
-                                                           inputs_rumors, labels_rumors, h)
+            loss_rumors, cnt_correct, h_r = training_batch_iter(model, 'rumor', criterion, optimizer, device,
+                                                                inputs_rumors, labels_rumors, h)
             cnt_correct_training_rumors += cnt_correct
             sum_loss_training_rumors += loss_rumors.item()
 
-            loss_stances, cnt_correct = training_batch_iter(model, 'stance', criterion, optimizer, device,
-                                                            inputs_stances, labels_stances, h)
+            loss_stances, cnt_correct, h_s = training_batch_iter(model, 'stance', criterion, optimizer, device,
+                                                                 inputs_stances, labels_stances, h)
             cnt_correct_training_stances += cnt_correct
             sum_loss_training_stances += loss_stances.item()
+
+            h_rumors, _, _ = h_r
+            _, h_stances, h_shared = h_s
+            h_training = h_rumors.clone(), h_stances.clone(), h_shared.clone()
 
             # make validation and save the model if it is the best until now
             if i > 3:  # start validation only from epoch 5
                 if 1 == counter_batches:
                     print('Validation of model: ')
                 cnt_correct_r, cnt_correct_s = validation_or_testing(model, val_loader_rumors, val_loader_stances,
-                                                                     criterion, device, i+1, validation_min_loss,
-                                                                     loss_rumors, loss_stances, counter_batches, last_save)
+                                                                     criterion, device, h_training, i+1,
+                                                                     validation_min_loss, loss_rumors, loss_stances,
+                                                                     counter_batches, last_save)
                 cnt_correct_validation_rumors += cnt_correct_r
                 cnt_correct_validation_stances += cnt_correct_s
 
@@ -178,6 +190,10 @@ def main():
         print('Total runtime: ', time_so_far)
         print('-----------------------------------------')
         torch.save(model.state_dict(), 'model/training_state_dict.pt')
+        h_r, h_s, h_sh = h_training
+        h_dict = {'h_1': h_r.to('cpu').detach().numpy(), 'h_2': h_s.to('cpu').detach().numpy(), 'h_3': h_sh.to('cpu').detach().numpy()}
+        with open('h_prevs_training.pickle', 'wb') as fp:
+            pickle.dump(h_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_batch, labels_batch, h):
@@ -191,7 +207,7 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
     :param inputs_batch:    the inputs batch
     :param labels_batch:    the target labels batch
     :param h:               the initial 'h_t's
-    :return:                - loss of the batch
+    :return:                - loss of the batch and hidden states
                             - number of correct predictions
     """
     # set initial 'h' vectors of model's GRUs
@@ -227,10 +243,12 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
     # count the number of correct outputs
     num_correct = count_correct(outputs, labels_batch, task_name, device)
 
-    return loss, num_correct
+    h = h_prev_task_rumors, h_prev_task_stances, h_prev_shared
+
+    return loss, num_correct, h
 
 
-def validation_or_testing(model, data_loader_rumors, data_loader_stances, criterion, device, epoch_no=None,
+def validation_or_testing(model, data_loader_rumors, data_loader_stances, criterion, device, h, epoch_no=None,
                           min_loss_dict=None, loss_train_r=None, loss_train_s=None, batch_no=None, last_save_dict=None,
                           operation='validation'):
     """
@@ -241,6 +259,7 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
     :param data_loader_stances:         DataLoader of stance detection task
     :param criterion:                   the loss function
     :param device:                      'cpu' or 'gpu'
+    :param h:                           h_prev_task_rumors, h_prev_task_stances, h_prev_shared
     :param epoch_no:                    epoch no
     :param min_loss_dict:               dictionary that contains the min losses of each task
     :param loss_train_r :               the loss of the training at this point of time for rumor detection task
@@ -264,7 +283,7 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
     total_lab_s = []  # for stance detection task
 
     # get initial 'h' vectors of model's GRUs
-    h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = model.init_hidden()
+    h_prev_task_rumors, h_prev_task_stances, h_prev_shared = h
 
     # iterate through the batch
     for (inputs_rumors, labels_rumors), (inputs_stances, labels_stances) \
@@ -273,11 +292,11 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
         inputs_stances, labels_stances = inputs_stances.to(device), labels_stances.to(device)
 
         # Forward pass for rumor task, to get outputs of the model
-        out_r, h_prev_shared_val, h_prev_task_rumors_val = model(inputs_rumors, h_prev_shared_val, df.task_rumors_no,
-                                                                 h_prev_rumors=h_prev_task_rumors_val)
+        out_r, h_prev_shared, h_prev_task_rumors = model(inputs_rumors, h_prev_shared, df.task_rumors_no,
+                                                         h_prev_rumors=h_prev_task_rumors)
         # Forward pass for stance task, to get outputs of the model
-        out_s, h_prev_shared_val, h_prev_task_stances_val = model(inputs_stances, h_prev_shared_val, df.task_stances_no,
-                                                                  h_prev_stances=h_prev_task_stances_val)
+        out_s, h_prev_shared, h_prev_task_stances = model(inputs_stances, h_prev_shared, df.task_stances_no,
+                                                          h_prev_stances=h_prev_task_stances)
 
         # we need this for calculation of F1 scores. we do it only for testing
         if 'testing' == operation:
@@ -321,13 +340,13 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
 
     if 'validation' == operation:
         print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
-                       last_save_dict)
+                       last_save_dict, h)
 
     return sum_correct_r, sum_correct_s
 
 
 def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
-                   last_save_dict):
+                   last_save_dict, h):
     """
     Prints the details of the validation and saves the dict of the model if it gave the best results so far.
     :param model:                       the multi-task model
@@ -339,6 +358,7 @@ def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_lo
     :param all_losses_s:                list with all the losses of the validation for stance detection task
     :param min_loss_dict:               dictionary that contains the min losses of each task
     :param last_save_dict               dictionary containing the the last epoch where a save happened for each task
+    :param h:                           h_prev_task_rumors, h_prev_task_stances, h_prev_shared
     :return:                            void
     """
     model.train()  # set the model to train mode
@@ -353,6 +373,13 @@ def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_lo
           'Val Loss avg: {:.6f}'.format(val_loss_avg))
     if val_loss_avg <= min_loss_dict['min loss']:
         torch.save(model.state_dict(), 'model/model_state_dict.pt')
+
+        # save the h_prev_task_rumors, h_prev_task_stances, h_prev_shared to file
+        h_r, h_s, h_sh = h
+        h_dict = {'h_1': h_r.to('cpu').detach().numpy(), 'h_2': h_s.to('cpu').detach().numpy(), 'h_3': h_sh.to('cpu').detach().numpy()}
+        with open(os.path.join('model', 'h_prevs.pickle'), 'wb') as fp:
+            pickle.dump(h_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
         print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...\n'.format(min_loss_dict['min loss'],
                                                                                           val_loss_avg))
         min_loss_dict['min loss'] = val_loss_avg

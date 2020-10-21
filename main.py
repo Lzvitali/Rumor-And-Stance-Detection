@@ -13,6 +13,12 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 
+try:
+    import cPickle as pickle
+except ImportError:  # Python 3.x
+    import pickle
+
+
 fasttext.FastText.eprint = print
 
 skipgram_path = 'embedding\\model_skipgram.bin'
@@ -22,11 +28,13 @@ def examine_example(fasttext_model, rumors, replies):
     rumors_list = []
     for rumor in rumors:
         rumor = dt.tweet_cleaner(rumor)
+        print(rumor)
         rumors_list.append(rumor)
-
+    print('--------------')
     replies_list = []
     for reply in replies:
         reply = dt.tweet_cleaner(reply)
+        print(reply)
         replies_list.append(reply)
 
     rumors_list_embedded = np.zeros((len(rumors_list), df.input_length), dtype=np.float32)
@@ -69,8 +77,16 @@ def examine_example(fasttext_model, rumors, replies):
     # Loading the model
     model_multi_task.load_state_dict(torch.load('model/model_state_dict.pt'))
 
-    # get initial 'h' vectors of model's GRUs
-    h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = model_multi_task.init_hidden()
+    # Load hidden states (get initial 'h' vectors of model's GRUs)
+    try:
+        with open(os.path.join('model', 'h_prevs.pickle'), 'rb') as fp:
+            h_training = pickle.load(fp)
+            h_training = (torch.from_numpy(h_training['h_1']).to(device),
+                          torch.from_numpy(h_training['h_2']).to(device),
+                          torch.from_numpy(h_training['h_3']).to(device))
+    except EnvironmentError:
+        h_training = model_multi_task.init_hidden()
+    h_prev_task_rumors_val, h_prev_task_stances_val, h_prev_shared_val = h_training
 
     out_r = []  # results for rumor detection task
     out_s = []  # results for stance detection task
@@ -96,11 +112,8 @@ def examine_example(fasttext_model, rumors, replies):
     true_rumors = []
     false_rumors = []
     unverified_rumors = []
-    for i, (tweet, output) in enumerate(zip(rumors, out_r)):
-        print('Source tweet{}: {}'.format(i, tweet))
-        print('True rumor: {:.2f} | False rumor: {:.2f} | Unverified: {:.2f} \n'.format((output[0]*100),
-                                                                                        (output[1]*100),
-                                                                                        (output[2]*100)))
+
+    for output in out_r:
         true_rumors.append(output[0].item())
         false_rumors.append(output[1].item())
         unverified_rumors.append(output[2].item())
@@ -116,15 +129,16 @@ def examine_example(fasttext_model, rumors, replies):
     plt.legend(loc="center left", bbox_to_anchor=(0.85, 0.1, 0.5, 0.85))
     plt.show()
 
+    for i, (tweet, output) in enumerate(zip(rumors, out_r)):
+        print('Source tweet {}: {}'.format(i + 1, tweet))
+        print('True rumor: {:.2f} | False rumor: {:.2f} | Unverified: {:.2f} \n'.format((output[0]*100),
+                                                                                        (output[1]*100),
+                                                                                        (output[2]*100)))
+
     # print results for stances
     print('\nPredictions for stances task: ')
     counters = [0, 0, 0, 0]
-    for i, (tweet, output) in enumerate(zip(replies, out_s)):
-        print('Reply{}: {}'.format(i, tweet))
-        print('Supporting: {:.2f} | Deny: {:.2f} | Query: {:.2f} | Comment: {:.2f}\n'.format((output[0] * 100),
-                                                                                             (output[1] * 100),
-                                                                                             (output[2] * 100),
-                                                                                             (output[3] * 100)))
+    for output in out_s:
         counters[torch.argmax(output, dim=0).item()] += 1
 
     # plot the results
@@ -136,6 +150,13 @@ def examine_example(fasttext_model, rumors, replies):
     plt.bar(left, height, tick_label=tick_label, width=0.8, color=['green', 'red', 'purple', 'orange'])
     plt.show()
 
+    for i, (tweet, output) in enumerate(zip(replies, out_s)):
+        print('Reply {}: {}'.format(i + 1, tweet))
+        print('Supporting: {:.2f} | Deny: {:.2f} | Query: {:.2f} | Comment: {:.2f}\n'.format((output[0] * 100),
+                                                                                             (output[1] * 100),
+                                                                                             (output[2] * 100),
+                                                                                             (output[3] * 100)))
+
 
 def main():
     # load the fasttext model
@@ -145,11 +166,24 @@ def main():
     else:
         skipgram_model = fasttext.load_model(skipgram_path)
 
-    rumors = ['#breaking Senior IOC member Dick Pound tells @usatodaysports the Tokyo 2020 Olympic Games will be postponed amid the coronavirus pandemic: "It will come in stages. We will postpone this and begin to deal with all the ramifications of moving this, which are immense." @jaketapper']
+    rumors = ['#breaking Senior IOC member Dick Pound tells @usatodaysports the Tokyo 2020 Olympic Games will be postponed amid the coronavirus pandemic: "It will come in stages. We will postpone this and begin to deal with all the ramifications of moving this, which are immense." @jaketapper',
+              'The International Olympic Committee has announced the upcoming 2020 Tokyo Olympic Games will be postponed, via USA Today.',
+              'Tweet 3: I’m hearing the Olympic Committee will likely postpone the games for a year or two but not cancel. Maybe we could go back to doing winter and summer in the same year I liked that better.',
+              'Tweet 4: Senior figures in British sport are now “90 per cent certain” that the Olympic Games in Tokyo will be postponed.',
+              'And there it is, the Olympic Games as postponed...',
+              'Japanese Officials Say 2020 Olympic Games Could be Postponed.',
+              'Coronavirus: Olympic Games to be postponed officially any day now as 2020 organisers face up to the inevitable.',
+              'Coronavirus will not postpone the Olympics, IOC says.']
     replies = ['It’s the right thing. I feel badly but it’s not worth the risks',
-               'I truly believe this Olympic should be protected by international efforts. Future-oriented options.',
-               'Who now?',
-               'No. "Senior IOC member Dick Pound." This is not real and I will not fall for this.']
+               'Should the Tokyo Olympic be cancelled rather than postponed, no country would try to host such a huge international event with enormous risk. If the Olympic is a noble event with worldwide commitments, would not it be more constructive to discuss "how to protect the Olympics"?',
+               'No. "Senior IOC member Dick Pound." This is not real and I will not fall for this.',
+               'To make it happen, Japan needs to aggressively start testing, tracing, isolating and treating people as well as informing people in utmost sincere and transparent way. Otherwise, this outbreak will never end as the world is interconnected and interdependent.',
+               'Finally!!',
+               'Smart move. If they did not postpone, they would have an Olympics with high school JV team swimmers and empty stands.',
+               'Good decision.',
+               'Ok now I know it’s serious.',
+               'Good news. I watch olympics but we need to shut everything down at least until new cases drops dramatically across the globe.',
+               'When reached for comment regarding the difficult of the decision, Dick Pound stated simply, “It was hard.”']
 
     examine_example(skipgram_model,
                     rumors,
