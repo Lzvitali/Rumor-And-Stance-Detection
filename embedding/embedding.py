@@ -82,19 +82,20 @@ def prepare_data_from_txt(fasttext_model):
         # if the label is 'non-rumor' it is not relevant for us - so don't count it
         if label != 'non-rumor':
             cnt_relevant_tweets += 1
-        tweets_validation = np.zeros((172, df.input_length), dtype=np.float32)
-        labels_validation = np.zeros((172, df.output_dim_rumors), dtype=np.int64)
 
-        tweets_test = np.zeros((144, df.input_length), dtype=np.float32)
-        labels_test = np.zeros((144, df.output_dim_rumors), dtype=np.int64)
+    tweets_validation = np.zeros((172, df.input_length), dtype=np.float32)
+    labels_validation = np.zeros((172, df.output_dim_rumors), dtype=np.int64)
 
-        tweets_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.input_length), dtype=np.float32)
-        labels_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.output_dim_rumors), dtype=np.int64)
+    tweets_test = np.zeros((144, df.input_length), dtype=np.float32)
+    labels_test = np.zeros((144, df.output_dim_rumors), dtype=np.int64)
 
-        i = 0
-        for tweet_line, label_line in zip(tweets_file_data, labels_file_data):
-            label_end = label_line.find(':')
-            label = label_line[:label_end]
+    tweets_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.input_length), dtype=np.float32)
+    labels_training = np.zeros((cnt_relevant_tweets - 172 - 144, df.output_dim_rumors), dtype=np.int64)
+
+    i = 0
+    for tweet_line, label_line in zip(tweets_file_data, labels_file_data):
+        label_end = label_line.find(':')
+        label = label_line[:label_end]
 
         # if the label is 'non-rumor' it is not relevant for us - so go to the next line
         if label == 'non-rumor':
