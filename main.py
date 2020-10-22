@@ -28,13 +28,10 @@ def examine_example(fasttext_model, rumors, replies):
     rumors_list = []
     for rumor in rumors:
         rumor = dt.tweet_cleaner(rumor)
-        print(rumor)
         rumors_list.append(rumor)
-    print('--------------')
     replies_list = []
     for reply in replies:
         reply = dt.tweet_cleaner(reply)
-        print(reply)
         replies_list.append(reply)
 
     rumors_list_embedded = np.zeros((len(rumors_list), df.input_length), dtype=np.float32)
@@ -137,17 +134,31 @@ def examine_example(fasttext_model, rumors, replies):
 
     # print results for stances
     print('\nPredictions for stances task: ')
-    counters = [0, 0, 0, 0]
+
+    support_stances = []
+    deny_stances = []
+    query_stances = []
+    commenting_stances = []
+
     for output in out_s:
-        counters[torch.argmax(output, dim=0).item()] += 1
+        support_stances.append(output[0].item())
+        deny_stances.append(output[1].item())
+        query_stances.append(output[2].item())
+        commenting_stances.append(output[3].item())
+
+    avg_support_stances = np.mean(support_stances) * 100
+    avg_deny_stances = np.mean(deny_stances) * 100
+    avg_query_stances = np.mean(query_stances) * 100
+    avg_commenting_stances = np.mean(commenting_stances) * 100
 
     # plot the results
     left = [1, 2, 3, 4]  # x-coordinates of left sides of bars
-    height = [counters[0], counters[1], counters[2], counters[3]]  # heights of bars
+    height = [avg_support_stances, avg_deny_stances, avg_query_stances, avg_commenting_stances]  # heights of bars
     tick_label = ['Supporting', 'Denying', 'Questioning', 'Commenting']  # labels for bars
 
     # plotting a bar chart
     plt.bar(left, height, tick_label=tick_label, width=0.8, color=['green', 'red', 'purple', 'orange'])
+    plt.ylabel('Stances distribution')
     plt.show()
 
     for i, (tweet, output) in enumerate(zip(replies, out_s)):
@@ -157,6 +168,27 @@ def examine_example(fasttext_model, rumors, replies):
                                                                                              (output[2] * 100),
                                                                                              (output[3] * 100)))
 
+    result_means = [round(avg_support_stances, 2), round(avg_deny_stances, 2),
+                    round(avg_query_stances, 2), round(avg_commenting_stances, 2)]
+    actual_means = [50, 10, 0, 40]
+
+    x = np.arange(len(tick_label))  # the label locations
+    width = 0.35  # the width of the bars
+
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(x - width / 2, result_means, width, label='Results')
+    rects2 = ax.bar(x + width / 2, actual_means, width, label='Actual')
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel('Stances distribution')
+    ax.set_title('Results accuracy')
+    ax.set_xticks(x)
+    ax.set_xticklabels(tick_label)
+    ax.legend()
+    autolabel(rects1, ax)
+    autolabel(rects2, ax)
+    fig.tight_layout()
+    plt.show()
 
 def main():
     # load the fasttext model
@@ -189,6 +221,18 @@ def main():
                     rumors,
                     replies
                     )
+
+
+def autolabel(rects, ax):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in rects:
+        height = rect.get_height()
+        ax.annotate('{}'.format(height),
+                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
 
 
 if __name__ == '__main__':
