@@ -21,7 +21,7 @@ except ImportError:  # Python 3.x
 
 fasttext.FastText.eprint = print
 
-skipgram_path = 'embedding\\model_skipgram.bin'
+skipgram_path = os.path.join('embedding', 'model_skipgram.bin')
 
 
 def examine_example(fasttext_model, rumors, replies):
@@ -46,11 +46,11 @@ def examine_example(fasttext_model, rumors, replies):
     # load our multi-task model
     # for rumors
     data_rumors = TensorDataset(torch.from_numpy(rumors_list_embedded))
-    loader_rumors = DataLoader(data_rumors, shuffle=False, batch_size=len(rumors_list))
+    loader_rumors = DataLoader(data_rumors, shuffle=False, batch_size=int(len(rumors_list)/2))
 
     # for stances
     data_replies = TensorDataset(torch.from_numpy(replies_list_embedded))
-    loader_replies = DataLoader(data_replies, shuffle=False, batch_size=len(replies_list))
+    loader_replies = DataLoader(data_replies, shuffle=False, batch_size=int(len(replies_list)/2))
 
     # torch.cuda.is_available() checks and returns a Boolean True if a GPU is available, else it'll return False
     is_cuda = torch.cuda.is_available()
@@ -72,7 +72,7 @@ def examine_example(fasttext_model, rumors, replies):
     model_multi_task.to(device)
 
     # Loading the model
-    model_multi_task.load_state_dict(torch.load('model/model_state_dict.pt'))
+    model_multi_task.load_state_dict(torch.load(os.path.join('model', 'model_state_dict.pt')))
 
     # Load hidden states (get initial 'h' vectors of model's GRUs)
     try:
@@ -94,15 +94,17 @@ def examine_example(fasttext_model, rumors, replies):
 
         for i in range(1):
             # Forward pass for rumor task, to get outputs of the model
-            out_r, h_prev_shared_val, h_prev_task_rumors_val = model_multi_task(inputs_rumors,
+            output, h_prev_shared_val, h_prev_task_rumors_val = model_multi_task(inputs_rumors,
                                                                                 h_prev_shared_val,
                                                                                 df.task_rumors_no,
                                                                                 h_prev_rumors=h_prev_task_rumors_val)
+            out_r += output
             # Forward pass for stance task, to get outputs of the model
-            out_s, h_prev_shared_val, h_prev_task_stances_val = model_multi_task(inputs_replies,
+            output, h_prev_shared_val, h_prev_task_stances_val = model_multi_task(inputs_replies,
                                                                                  h_prev_shared_val,
                                                                                  df.task_stances_no,
                                                                                  h_prev_stances=h_prev_task_stances_val)
+            out_s += output
 
     # print results for rumors
     print('\nPredictions for rumors task: ')
@@ -200,8 +202,8 @@ def main():
 
     rumors = ['#breaking Senior IOC member Dick Pound tells @usatodaysports the Tokyo 2020 Olympic Games will be postponed amid the coronavirus pandemic: "It will come in stages. We will postpone this and begin to deal with all the ramifications of moving this, which are immense." @jaketapper',
               'The International Olympic Committee has announced the upcoming 2020 Tokyo Olympic Games will be postponed, via USA Today.',
-              'Tweet 3: I’m hearing the Olympic Committee will likely postpone the games for a year or two but not cancel. Maybe we could go back to doing winter and summer in the same year I liked that better.',
-              'Tweet 4: Senior figures in British sport are now “90 per cent certain” that the Olympic Games in Tokyo will be postponed.',
+              'I’m hearing the Olympic Committee will likely postpone the games for a year or two but not cancel. Maybe we could go back to doing winter and summer in the same year I liked that better.',
+              'Senior figures in British sport are now “90 per cent certain” that the Olympic Games in Tokyo will be postponed.',
               'And there it is, the Olympic Games as postponed...',
               'Japanese Officials Say 2020 Olympic Games Could be Postponed.',
               'Coronavirus: Olympic Games to be postponed officially any day now as 2020 organisers face up to the inevitable.',

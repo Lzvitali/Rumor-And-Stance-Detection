@@ -28,18 +28,18 @@ preprocessed_data_paths = {
     'validation_stances_labels path':   os.path.join('data', 'preprocessed data', 'validation', 'stances_labels.npy'),
 }
 
-batch_size_training_rumors = 200
-batch_size_training_stances = 200
+batch_size_training_rumors = 5
+batch_size_training_stances = 5
 
-batch_size_validation_rumors = 20  # 200
-batch_size_validation_stances = 96  # 961
+batch_size_validation_rumors = 4
+batch_size_validation_stances = 12
 
 loss_function = 'BCELoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0005         # learning rate
+learning_rate = 0.0008         # learning rate
 epochs = 150
 
-is_dropout = False  # can be True or False
-drop_prob = 0.0
+is_dropout = True  # can be True or False
+drop_prob = 0.2
 
 
 def main():
@@ -49,7 +49,7 @@ def main():
     val_data_rumors = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_tweets path'])),
                                     torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_labels path'])))
 
-    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors, drop_last=True)
+    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors, drop_last=False)
     val_loader_rumors = DataLoader(val_data_rumors, shuffle=False, batch_size=batch_size_validation_rumors, drop_last=True)
 
     # create 'TensorDataset's  for stances
@@ -60,7 +60,7 @@ def main():
                                      torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_labels path'])))
 
     # create 'DataLoader's  for stances
-    train_loader_stances = DataLoader(train_data_stances, shuffle=True, batch_size=batch_size_training_stances, drop_last=True)
+    train_loader_stances = DataLoader(train_data_stances, shuffle=True, batch_size=batch_size_training_stances, drop_last=False)
     val_loader_stances = DataLoader(val_data_stances, shuffle=False, batch_size=batch_size_validation_stances, drop_last=True)
 
     # torch.cuda.is_available() checks and returns a Boolean True if a GPU is available, else it'll return False
@@ -118,12 +118,14 @@ def main():
         print('\nEpoch: {}'.format(i + 1))
 
         counter_batches = 0
-        cnt_correct_training_rumors = 0
-        cnt_correct_training_stances = 0
-        cnt_correct_validation_rumors = 0
-        cnt_correct_validation_stances = 0
         sum_loss_training_rumors = 0
         sum_loss_training_stances = 0
+
+        accuracy_r_avg_val = 0
+        accuracy_s_avg_val = 0
+
+        accuracy_r_avg_train = 0
+        accuracy_s_avg_train = 0
 
         # iterate through all the batch
         for (inputs_rumors, labels_rumors), (inputs_stances, labels_stances) \
@@ -131,14 +133,14 @@ def main():
             counter_batches += 1
 
             # make training
-            loss_rumors, cnt_correct, h_r = training_batch_iter(model, 'rumor', criterion, optimizer, device,
+            loss_rumors, accuracy, h_r = training_batch_iter(model, 'rumor', criterion, optimizer, device,
                                                                 inputs_rumors, labels_rumors, h)
-            cnt_correct_training_rumors += cnt_correct
+            accuracy_r_avg_train = (accuracy_r_avg_train * (counter_batches - 1) + accuracy) / counter_batches
             sum_loss_training_rumors += loss_rumors.item()
 
-            loss_stances, cnt_correct, h_s = training_batch_iter(model, 'stance', criterion, optimizer, device,
+            loss_stances, accuracy, h_s = training_batch_iter(model, 'stance', criterion, optimizer, device,
                                                                  inputs_stances, labels_stances, h)
-            cnt_correct_training_stances += cnt_correct
+            accuracy_s_avg_train = (accuracy_s_avg_train * (counter_batches - 1) + accuracy) / counter_batches
             sum_loss_training_stances += loss_stances.item()
 
             h_rumors, _, _ = h_r
@@ -149,34 +151,28 @@ def main():
             if i > 3:  # start validation only from epoch 5
                 if 1 == counter_batches:
                     print('Validation of model: ')
-                cnt_correct_r, cnt_correct_s = validation_or_testing(model, val_loader_rumors, val_loader_stances,
-                                                                     criterion, device, h_training, i+1,
-                                                                     validation_min_loss, loss_rumors, loss_stances,
-                                                                     counter_batches, last_save)
-                cnt_correct_validation_rumors += cnt_correct_r
-                cnt_correct_validation_stances += cnt_correct_s
+                accuracy_r, accuracy_s = validation_or_testing(model, val_loader_rumors, val_loader_stances,
+                                                               criterion, device, h_training, i+1,
+                                                               validation_min_loss, loss_rumors, loss_stances,
+                                                               counter_batches, last_save)
+
+                accuracy_r_avg_val = (accuracy_r_avg_val * (counter_batches - 1) + accuracy_r) / counter_batches
+                accuracy_s_avg_val = (accuracy_s_avg_val * (counter_batches - 1) + accuracy_s) / counter_batches
 
         # print accuracy and loss of the training
         training_loss_rumors = sum_loss_training_rumors / counter_batches
         print('Training loss rumors: {:.3f}'.format(training_loss_rumors))
-        training_acc_rumors = cnt_correct_training_rumors / (batch_size_training_rumors * counter_batches)
-        print('Training accuracy rumors: {:.3f}%'.format(training_acc_rumors * 100))
+        print('Training accuracy rumors: {:.3f}%'.format(accuracy_r_avg_train))
 
         training_loss_stances = sum_loss_training_stances / counter_batches
         print('Training loss stances: {:.3f}'.format(training_loss_stances))
-        training_acc_stances = cnt_correct_training_stances / (batch_size_training_stances * counter_batches)
-        print('Training accuracy stances: {:.3f}%'.format(training_acc_stances * 100))
+        print('Training accuracy stances: {:.3f}%'.format(accuracy_s_avg_train))
 
         # print accuracy of the validation
         if i > 3:
             print('-----------------------------------------')
-
-            validation_acc_rumors = cnt_correct_validation_rumors / (len(val_loader_rumors.dataset) * counter_batches)
-            print('Validation accuracy rumors: {:.3f}%'.format(validation_acc_rumors * 100))
-
-            validation_acc_stances = cnt_correct_validation_stances / (len(val_loader_stances.dataset) * counter_batches)
-            print('Validation accuracy stances: {:.3f}%'.format(validation_acc_stances * 100))
-
+            print('Validation accuracy rumors: {:.3f}%'.format(accuracy_r_avg_val))
+            print('Validation accuracy stances: {:.3f}%'.format(accuracy_s_avg_val))
             print('-----------------------------------------')
 
             print('Last save for model: epoch ' + str(last_save['last save']))
@@ -245,7 +241,9 @@ def training_batch_iter(model, task_name, criterion, optimizer, device, inputs_b
 
     h = h_prev_task_rumors, h_prev_task_stances, h_prev_shared
 
-    return loss, num_correct, h
+    accuracy = (num_correct / len(outputs)) * 100
+
+    return loss, accuracy, h
 
 
 def validation_or_testing(model, data_loader_rumors, data_loader_stances, criterion, device, h, epoch_no=None,
@@ -276,6 +274,8 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
 
     sum_correct_r = 0  # for rumor detection task
     sum_correct_s = 0  # for stance detection task
+    total_r = 0
+    total_s = 0
 
     total_out_r = []  # for rumor detection task
     total_lab_r = []  # for rumor detection task
@@ -308,6 +308,9 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
         # count the number of correct outputs
         sum_correct_r += count_correct(out_r, labels_rumors, 'rumor', device)
         sum_correct_s += count_correct(out_s, labels_stances, 'stance', device)
+
+        total_r += len(out_r)
+        total_s += len(out_s)
 
         # Calculate Loss
         if loss_function == 'BCELoss' or loss_function == 'MSELoss':
@@ -342,7 +345,10 @@ def validation_or_testing(model, data_loader_rumors, data_loader_stances, criter
         print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
                        last_save_dict, h)
 
-    return sum_correct_r, sum_correct_s
+    accuracy_r = (sum_correct_r/total_r)*100
+    accuracy_s = (sum_correct_s/total_s)*100
+
+    return accuracy_r, accuracy_s
 
 
 def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_losses_r, all_losses_s, min_loss_dict,
