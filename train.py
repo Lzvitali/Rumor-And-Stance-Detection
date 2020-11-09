@@ -35,8 +35,8 @@ batch_size_validation_rumors = 4
 batch_size_validation_stances = 12
 
 loss_function = 'BCELoss'      # supported options: CrossEntropyLoss | BCELoss | L1Loss | MSELoss
-learning_rate = 0.0008         # learning rate
-epochs = 150
+learning_rate = 0.0005                  # learning rate
+epochs = 50
 
 is_dropout = True  # can be True or False
 drop_prob = 0.2
@@ -49,11 +49,11 @@ def main():
     val_data_rumors = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_tweets path'])),
                                     torch.from_numpy(np.load(preprocessed_data_paths['validation_rumors_labels path'])))
 
-    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors, drop_last=False)
+    train_loader_rumors = DataLoader(train_data_rumors, shuffle=True, batch_size=batch_size_training_rumors, drop_last=True)
     val_loader_rumors = DataLoader(val_data_rumors, shuffle=False, batch_size=batch_size_validation_rumors, drop_last=True)
 
     # create 'TensorDataset's  for stances
-    train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),  # [:3050, :]
+    train_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['training_stances_tweets path'])),
                                        torch.from_numpy(np.load(preprocessed_data_paths['training_stances_labels path'])))
 
     val_data_stances = TensorDataset(torch.from_numpy(np.load(preprocessed_data_paths['validation_stances_tweets path'])),
@@ -185,10 +185,10 @@ def main():
         print('-----------------------------------------')
         print('Total runtime: ', time_so_far)
         print('-----------------------------------------')
-        torch.save(model.state_dict(), 'model/training_state_dict.pt')
+        torch.save(model.state_dict(), os.path.join('model', 'training_state_dict.pt'))
         h_r, h_s, h_sh = h_training
         h_dict = {'h_1': h_r.to('cpu').detach().numpy(), 'h_2': h_s.to('cpu').detach().numpy(), 'h_3': h_sh.to('cpu').detach().numpy()}
-        with open('h_prevs_training.pickle', 'wb') as fp:
+        with open(os.path.join('model', 'h_prevs_training.pickle'), 'wb') as fp:
             pickle.dump(h_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
@@ -378,7 +378,7 @@ def print_and_save(model, epoch_no, batch_no, loss_train_r, loss_train_s, all_lo
           'Val Loss for stances: {:.6f}\n'.format(np.mean(all_losses_s)),
           'Val Loss avg: {:.6f}'.format(val_loss_avg))
     if val_loss_avg <= min_loss_dict['min loss']:
-        torch.save(model.state_dict(), 'model/model_state_dict.pt')
+        torch.save(model.state_dict(), os.path.join('model', 'model_state_dict.pt'))
 
         # save the h_prev_task_rumors, h_prev_task_stances, h_prev_shared to file
         h_r, h_s, h_sh = h

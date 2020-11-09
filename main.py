@@ -95,15 +95,15 @@ def examine_example(fasttext_model, rumors, replies):
         for i in range(1):
             # Forward pass for rumor task, to get outputs of the model
             output, h_prev_shared_val, h_prev_task_rumors_val = model_multi_task(inputs_rumors,
-                                                                                h_prev_shared_val,
-                                                                                df.task_rumors_no,
-                                                                                h_prev_rumors=h_prev_task_rumors_val)
+                                                                                 h_prev_shared_val,
+                                                                                 df.task_rumors_no,
+                                                                                 h_prev_rumors=h_prev_task_rumors_val)
             out_r += output
             # Forward pass for stance task, to get outputs of the model
             output, h_prev_shared_val, h_prev_task_stances_val = model_multi_task(inputs_replies,
-                                                                                 h_prev_shared_val,
-                                                                                 df.task_stances_no,
-                                                                                 h_prev_stances=h_prev_task_stances_val)
+                                                                                  h_prev_shared_val,
+                                                                                  df.task_stances_no,
+                                                                                  h_prev_stances=h_prev_task_stances_val)
             out_s += output
 
     # print results for rumors
@@ -207,7 +207,7 @@ def main():
               'And there it is, the Olympic Games as postponed...',
               'Japanese Officials Say 2020 Olympic Games Could be Postponed.',
               'Coronavirus: Olympic Games to be postponed officially any day now as 2020 organisers face up to the inevitable.',
-              'Coronavirus will not postpone the Olympics, IOC says.']
+              'Coronavirus will postpone the Olympics, IOC says.']
     replies = ['It’s the right thing. I feel badly but it’s not worth the risks',
                'Should the Tokyo Olympic be cancelled rather than postponed, no country would try to host such a huge international event with enormous risk. If the Olympic is a noble event with worldwide commitments, would not it be more constructive to discuss "how to protect the Olympics"?',
                'No. "Senior IOC member Dick Pound." This is not real and I will not fall for this.',
