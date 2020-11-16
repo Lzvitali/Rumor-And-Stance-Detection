@@ -22,4 +22,4 @@ The dataset is a combination of the below datasets:
 - PyTorch 1.6.0  (there is a support for GPU and for CPU (no GPU))
 - fasttext 0.9.2  
 
-**For more information, explanations and outputs check out the [*notebook*](https://tokyo2020.org/en/news/joint-statement-from-international-olympic-committee-and-tokyo2020#:~:text=In%20the%20present%20circumstances%20and,health%20of%20the%20athletes%2C%20everybody)**
+**For more information, explanations and outputs check out the [*notebook*](https://github.com/Lzvitali/Rumor-And-Stance-Detection/blob/master/Rumor%20And%20Stance%20Detection.ipynb)**
